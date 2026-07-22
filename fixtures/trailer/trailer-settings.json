@@ -1,0 +1,13 @@
+{
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "slowMo": 200,
+  "demoMode": true,
+  "notes": [
+    "Use deterministic demo data where available.",
+    "Do not trigger real Stripe checkout.",
+    "Do not burn real AI credits unless a test/demo LLM mode is active."
+  ]
+}
