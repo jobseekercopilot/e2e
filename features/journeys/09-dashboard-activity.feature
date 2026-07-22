@@ -1,3 +1,4 @@
+@demo
 Feature: Dashboard activity promo clip
 
   Scenario: Alex returns to the dashboard after taking actions

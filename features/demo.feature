@@ -1,3 +1,4 @@
+@demo
 Feature: Demo journeys
 
   This file is reserved for additional readable demo journeys.

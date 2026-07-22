@@ -1,3 +1,4 @@
+@demo
 Feature: SUCCEED
 
   Scenario: Alex secures an offer after interview

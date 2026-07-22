@@ -1,3 +1,4 @@
+@demo
 Feature: Job search promo clip
 
   Scenario: Alex searches for software developer jobs

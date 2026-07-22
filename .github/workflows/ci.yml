@@ -28,6 +28,17 @@ jobs:
           HEADLESS: "true"
           RECORD_VIDEO: "false"
           DEMO_MODE: "false"
+      - name: Retain bounded smoke failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-smoke-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test-results/failures/*.png
+            test-results/failures/*.json
+          if-no-files-found: ignore
+          retention-days: 3
+          include-hidden-files: false
       - name: Reject unaccepted Critical or High dependencies
         run: npm audit --audit-level=high
 

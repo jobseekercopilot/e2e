@@ -1,3 +1,4 @@
+@demo
 Feature: Registration promo clip
 
   Scenario: Alex Taylor registers and reaches the dashboard

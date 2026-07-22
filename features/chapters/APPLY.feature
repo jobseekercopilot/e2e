@@ -1,3 +1,4 @@
+@demo
 Feature: APPLY
 
   Scenario: Alex generates and downloads application documents

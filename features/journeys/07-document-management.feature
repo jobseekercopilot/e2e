@@ -1,3 +1,4 @@
+@demo
 Feature: Document management promo clip
 
   Scenario: Alex views generated documents

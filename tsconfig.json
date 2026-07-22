@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "outDir": "dist"
   },
-  "include": ["steps/**/*.ts", "pages/**/*.ts", "support/**/*.ts", "fixtures/**/*.json", "playwright.config.ts"]
+  "include": ["steps/**/*.ts", "pages/**/*.ts", "support/**/*.ts", "tests/**/*.ts", "fixtures/**/*.json", "playwright.config.ts"]
 }

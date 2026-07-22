@@ -1,3 +1,4 @@
+@demo
 Feature: Full marketing trailer journey
 
   Scenario: Alex uses Job Seeker Copilot from registration to offer

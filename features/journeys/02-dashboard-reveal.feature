@@ -1,3 +1,4 @@
+@demo
 Feature: Dashboard reveal promo clip
 
   Scenario: Alex Taylor views his dashboard
