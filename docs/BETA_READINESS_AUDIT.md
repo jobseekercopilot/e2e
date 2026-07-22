@@ -42,7 +42,7 @@ do not replace.
 |---|---|---|---|---|
 | E2E-01 | Import and baseline the authoritative framework | High / P1 | None | Yes |
 | E2E-02 | Add tagged profiles, isolated cleanup and CI artifacts | High / P1 | E2E-01 | Implemented; merge evidence in issue |
-| E2E-03 | Replace the broad stale 26-service Compose path with the minimum approved stack | High / P1 | E2E-01; system-data decision if used | Yes |
+| E2E-03 | Replace the broad stale 26-service Compose path with the minimum approved stack | High / P1 | E2E-01/02 and SD-07 | Yes |
 | E2E-04 | Prove complete beta auth/profile/location security and provider failures | High / P1 | E2E-02/03 and service test blockers | Yes |
 | E2E-05 | Add accessibility and resilient-UX evidence | Medium / P1 | E2E-02/03 and CLIENT-08 | Yes |
 | E2E-06 | Align supported Node and remediate Moderate dependencies | Medium / P2 | E2E-01 | No |
@@ -53,8 +53,9 @@ The parent-workspace Compose configuration parses and maps the client to port
 3100, but it starts 26 services. It includes out-of-scope legacy services,
 stale H2 auth/profile configuration, no merged JWT/JWKS/service-identity/session
 settings and a system-data fixture dependency. It was not started during this
-audit and must not be used as beta evidence. E2E-03 owns the minimum replacement
-and must audit system-data-service before making it a maintained dependency.
+audit and must not be used as beta evidence. System-data is now independently
+audited and SD-07 supplies its bounded E2E client; E2E-03 owns the minimum
+replacement stack and actual cross-service proof.
 
 ## E2E-02 evidence
 
@@ -68,6 +69,20 @@ and must audit system-data-service before making it a maintained dependency.
 - CI executes a no-secret framework smoke and uploads only screenshots and
   sanitized metadata for three days; trace archives stay local to avoid
   publishing session details. Product smoke journeys await E2E-03's stack.
+
+## SD-07 lifecycle integration
+
+- Stateful scenarios bind to one validated system-data named state. Hooks run
+  describe, prepare and verify before the browser and reset after success or
+  failure; E2E contains no database seeding or provider acquisition code.
+- The typed client accepts only bounded loopback/Compose targets, requires the
+  runtime caller key, validates response shapes and never echoes response
+  bodies, URLs or keys in errors.
+- Deterministic local-double tests cover the complete HTTP contract, unsafe
+  configuration, profile/state separation, best-effort recovery, cleanup after
+  failure and preservation of the original scenario error.
+- E2E-03 still owns actual Compose startup and cross-service persistence proof;
+  this repository remains not beta-ready until that evidence and E2E-04/05 pass.
 
 ## Definition of Done
 

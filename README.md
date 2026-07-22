@@ -94,6 +94,11 @@ closed for demo runs, remote/HTTPS targets, disabled cleanup and all other
 email namespaces. `E2E_CLEANUP_TOKEN`, when the minimal stack requires it, is
 runtime-only and must never be written to files or uploaded.
 
+Stateful beta scenarios use the stronger system-data named-state lifecycle and
+must use identities supplied by that state rather than registering an unrelated
+cleanup identity. See [the lifecycle contract](docs/SYSTEM_DATA_LIFECYCLE.md)
+for tags, endpoints, configuration and the E2E-03 minimum-stack handoff.
+
 ## Failure evidence and authentication state
 
 Beta browser profiles retain trace, screenshot and a metadata-only JSON report
