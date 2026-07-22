@@ -1,0 +1,32 @@
+{
+  "name": "job-seeker-copilot-e2e",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Playwright, Cucumber and TypeScript E2E tests for Job Seeker Copilot.",
+  "scripts": {
+    "test": "cucumber-js",
+    "test:local": "HEADLESS=false SLOW_MO=100 RECORD_VIDEO=true cucumber-js",
+    "test:ci": "HEADLESS=true SLOW_MO=0 RECORD_VIDEO=false cucumber-js",
+    "test:definitions": "cucumber-js --dry-run",
+    "test:support": "HEADLESS=true RECORD_VIDEO=false playwright test",
+    "record": "REVIEW_SET=final node scripts/record-review-set.js",
+    "record:all": "npm run record",
+    "record:final": "npm run record",
+    "test:cursor": "playwright test tests/demo-cursor.spec.ts",
+    "playwright:install": "playwright install chromium",
+    "playwright:install:ci": "playwright install --with-deps chromium",
+    "typecheck": "tsc --noEmit",
+    "verify:tracked-files": "git ls-files --cached --others --exclude-standard -z | node scripts/verify-tracked-files.js",
+    "verify": "npm run verify:tracked-files && npm run typecheck && npm run test:definitions && npm run test:support"
+  },
+  "dependencies": {
+    "@cucumber/cucumber": "^11.2.0",
+    "@playwright/test": "^1.54.0",
+    "dotenv": "^16.4.7",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.14"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "types": ["node", "@cucumber/cucumber"],
+    "skipLibCheck": true,
+    "outDir": "dist"
+  },
+  "include": ["steps/**/*.ts", "pages/**/*.ts", "support/**/*.ts", "fixtures/**/*.json", "playwright.config.ts"]
+}

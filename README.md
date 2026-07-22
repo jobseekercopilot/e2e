@@ -1,0 +1,244 @@
+# Job Seeker Copilot E2E And Promo Automation
+
+This private repository is the authoritative Playwright, Cucumber and
+TypeScript automation suite for Job Seeker Copilot.
+
+It serves two related purposes:
+
+1. E2E regression testing for user journeys.
+2. Repeatable promo recordings for product trailers, website clips and LinkedIn demos.
+
+It is maintained independently from the Angular application and Spring Boot
+services. It does not duplicate another browser framework. Demo journeys are
+preserved while beta-grade execution profiles and coverage are tracked in the
+[beta-readiness audit](docs/BETA_READINESS_AUDIT.md).
+
+## Install
+
+```bash
+npm ci
+npm run playwright:install
+npm run verify
+npm audit --audit-level=high
+```
+
+Use Node 22. Copy `.env.example` to `.env` for local overrides. Real `.env`
+files, browser authentication state, reports, screenshots and recordings are
+ignored and must never be committed.
+
+## Configuration
+
+Key variables:
+
+```text
+BASE_URL=http://localhost:4200
+HEADLESS=false
+SLOW_MO=150
+RECORD_VIDEO=true
+VIDEO_DIR=videos
+DEMO_MODE=true
+DEMO_RECORDING=false
+DEMO_DOWNLOAD_DIR=demo-recordings/final/downloads
+TYPING_DELAY_MS=65
+DEMO_BUFFER_MS=2000
+DEMO_SCROLL_MS=650
+VIDEO_NAME=registration-demo
+```
+
+Promo recordings use Chromium, a `1920x1080` viewport, page-only Playwright video capture and timestamped file names. Recording mode sets global Playwright `slowMo` to `0` and lets the cursor, pause and intentional-scroll helpers control visible pacing.
+
+## Run Tests
+
+```bash
+npm run test
+npm run test:local
+npm run test:ci
+npm run verify
+```
+
+`npm run verify` is the clean-clone baseline: tracked-file policy, TypeScript,
+all 19 Cucumber scenarios/113 step definitions in dry-run mode, and the 15
+Playwright support tests. It does not claim that the current broad Compose
+stack or the complete beta browser journey passes.
+
+## Fixture Preflight
+
+The historical broad demo stack configuration remains in the parent workspace,
+not this repository. Its Compose model parses but currently spans 26 services,
+including unapproved legacy capabilities and stale user-management settings.
+Do not use it as beta evidence. E2E-03 owns a minimum approved stack; until that
+lands, run demo fixture preflight only from the controlled original workspace.
+
+Promo and deterministic E2E runs require gateway fixture mode before Playwright starts:
+
+```bash
+# From the controlled parent workspace only; not a clean-clone command.
+docker compose -f docker-compose.yml -f docker-compose.e2e.yml config
+```
+
+The verification checks `GET /internal/provider-mode` for all external gateways, validates system-data fixture endpoints, and smokes the normal gateway APIs. Do not record demo clips against live Adzuna, JSearch, Reed, postcodes.io, OpenAI or Stripe.
+
+## Record Final Chapters
+
+Start the isolated E2E stack first and prepare the demo fixtures:
+
+```bash
+cd /path/to/job-seeker-copilot-parent-workspace
+python -m scripts.docker.start_stack e2e --build
+python -m scripts.demo.prepare_demo --skip-start
+```
+
+Then record the seven final promotional chapters:
+
+```bash
+JSC_WORKSPACE_ROOT=/path/to/job-seeker-copilot-parent-workspace \
+npm run record
+```
+
+The optional parent workspace is used only for the preserved demo fixture
+preparation command. Generated review media stays under this repository's
+ignored `demo-recordings/` directory. Set `SKIP_DEMO_PREP=true` only after an
+equivalent controlled fixture preflight has succeeded.
+
+The generated MP4s are:
+
+```text
+REGISTER.mp4
+DISCOVER.mp4
+APPLY.mp4
+REPORT.mp4
+TRACK.mp4
+ORGANISE.mp4
+SUCCEED.mp4
+```
+
+The output folder is cleaned at the start of each recording run:
+
+```text
+demo-recordings/final/
+```
+
+## Journey Files
+
+```text
+features/chapters/REGISTER.feature
+features/chapters/DISCOVER.feature
+features/chapters/APPLY.feature
+features/chapters/REPORT.feature
+features/chapters/TRACK.feature
+features/chapters/ORGANISE.feature
+features/chapters/SUCCEED.feature
+```
+
+The older `features/demo-trailer.feature` is still supported by the registration step definitions.
+
+## Promotional Cursor And Downloads
+
+Set `DEMO_RECORDING=true` for promo capture. This injects a dark page-level cursor overlay with a light outline. Playwright's real mouse position is the source of truth: the overlay follows browser `mousemove` and `pointermove` events while the helper drives the real mouse through eased intermediate points. Clicks show a subtle ripple at the same coordinates used by the browser, and a small download-complete toast appears only after Playwright has observed and saved the real browser download.
+
+Document downloads are preserved under:
+
+```text
+demo-recordings/final/downloads
+```
+
+The combined generation and document-management clips save deterministic review filenames such as `alex-taylor-tailored-cv.pdf` and `alex-taylor-cover-letter.pdf` when the application exports PDF.
+
+## Videos And Reports
+
+Videos are saved in:
+
+```text
+e2e/playwright-cucumber/videos
+```
+
+Example:
+
+```text
+registration-demo-2026-07-09T19-24-53-446Z.webm
+```
+
+Cucumber reports are written to `reports/`, and failure screenshots are written to `screenshots/`.
+
+## Selector Standards
+
+Prefer selectors in this order:
+
+1. `data-testid`
+2. accessible role and visible name
+3. form label
+4. visible text
+5. CSS selectors only as a last resort
+
+When an element lacks a stable selector, page objects include TODO comments instead of broad CSS hacks.
+
+Recommended `data-testid` additions include:
+
+```text
+register-full-name-input
+register-email-input
+register-password-input
+register-next-button
+register-submit-button
+skill-input
+target-role-input
+qualification-name-input
+work-history-job-title-input
+home-location-input
+commute-range-input
+nav-dashboard
+nav-find-jobs
+nav-applications
+nav-documents
+nav-ai-credit
+job-search-keywords-input
+job-search-location-input
+job-result-card
+job-details-panel
+generate-documents-button
+documents-page
+document-card
+document-version-history
+application-tracker-page
+application-card
+application-status-select
+dashboard-page
+dashboard-activity-timeline
+dashboard-ai-credit-widget
+ai-credit-page
+ai-credit-balance
+spending-log
+```
+
+## Known TODOs
+
+- Add a demo reset endpoint or seeded demo user so promo clips can use `alex.taylor92@example.com` deterministically.
+- Add deterministic document generation for `DEMO_MODE=true` so application document clips do not spend real AI credits.
+- Add stable navigation routes or `data-testid`s for Documents, Applications and AI Credit.
+- Never perform a real Stripe payment in promo automation; the AI credit journey stops before checkout.
+- Add richer seeded demo data for documents, applications, spending log and activity timeline.
+
+Beta-blocking audit work is tracked in private E2E-02 through E2E-05. E2E-06
+tracks the five current Moderate Cucumber/uuid dependency findings and runtime
+support alignment. There is no accepted Critical or High dependency finding.
+
+## Import provenance and ownership
+
+The source was imported from the untracked workspace directory
+`e2e/playwright-cucumber` after a source-only backup and redacted secret scan on
+22 July 2026. Root Git tracked none of the files, so no source history existed
+to migrate. Generated videos, screenshots, reports, local auth state, caches and
+environment files were deliberately excluded. The original root repository was
+not changed or rewritten.
+
+Use `feature/*` branches into `develop`. There is no application `main` branch
+before beta release governance is approved. See [CONTRIBUTING.md](CONTRIBUTING.md)
+and [SECURITY.md](SECURITY.md).
+
+## Adding New Journeys
+
+1. Add a readable chapter feature under `features/chapters`.
+2. Put step definitions in the closest product-area file under `steps`.
+3. Add or extend a page object under `pages`.
+4. Prefer a page-object method over direct locator calls in steps.
+5. Add an npm `record:*` script with a clear `VIDEO_NAME`.

@@ -1,0 +1,45 @@
+{
+  "fullName": "Alex Taylor",
+  "email": "alex.taylor92@example.com",
+  "password": "Password123!",
+  "skills": [
+    "Java",
+    "Spring Boot",
+    "Angular",
+    "SQL",
+    "Git",
+    "REST APIs",
+    "Problem Solving",
+    "Teamwork"
+  ],
+  "targetRoles": [
+    "Software Developer",
+    "Backend Developer",
+    "Java Developer"
+  ],
+  "weeklyHours": "Full-Time (35-40 hours)",
+  "qualification": {
+    "name": "BSc Computer Science",
+    "institution": "University of Birmingham",
+    "grade": "2:1",
+    "completed": "2021"
+  },
+  "workHistory": [
+    {
+      "jobTitle": "Software Developer",
+      "employer": "BrightTech Solutions",
+      "from": "July 2021",
+      "to": "Present",
+      "description": "Developed Java and Spring Boot microservices for enterprise web applications, collaborated with Angular developers, and built REST APIs for cloud-based systems."
+    },
+    {
+      "jobTitle": "Software Engineering Intern",
+      "employer": "CodeBridge Ltd",
+      "from": "June 2020",
+      "to": "August 2020",
+      "description": "Assisted senior developers with bug fixing, software testing and implementing new frontend features while working in an Agile development team."
+    }
+  ],
+  "homeLocation": "Reading",
+  "commuteRange": "Within 10 miles"
+}
