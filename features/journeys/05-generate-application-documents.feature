@@ -1,3 +1,4 @@
+@demo
 Feature: Generate tailored application documents
 
   Scenario: Alex generates a CV and cover letter for a selected job

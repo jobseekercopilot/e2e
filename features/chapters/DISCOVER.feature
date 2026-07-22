@@ -1,3 +1,4 @@
+@demo
 Feature: DISCOVER
 
   Scenario: Alex discovers relevant software developer roles

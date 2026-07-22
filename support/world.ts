@@ -11,6 +11,7 @@ import { JobSearchPage, type JobSearchFixture } from '../pages/JobSearchPage';
 import { NavigationPage } from '../pages/NavigationPage';
 import { RegisterPage } from '../pages/RegisterPage';
 import { e2eConfig } from './config';
+import { createRunId } from './synthetic-data';
 
 export interface QualificationFixture {
   name: string;
@@ -49,6 +50,9 @@ export class JobSeekerWorld extends World {
   documentGenerationAttempted?: 'applicationDocuments';
   documentGenerationSuccessShown = false;
   demoDownloads: string[] = [];
+  readonly runId = createRunId();
+  readonly syntheticUsers = new Set<string>();
+  tracingStarted = false;
   readonly config = e2eConfig;
 
   registerPage?: RegisterPage;
@@ -78,6 +82,10 @@ export class JobSeekerWorld extends World {
     this.documentsPage = new DocumentsPage(page);
     this.applicationTrackerPage = new ApplicationTrackerPage(page);
     this.aiCreditPage = new AiCreditPage(page);
+  }
+
+  registerSyntheticUser(email: string): void {
+    this.syntheticUsers.add(email);
   }
 }
 

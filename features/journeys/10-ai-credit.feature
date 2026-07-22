@@ -1,3 +1,4 @@
+@demo
 Feature: AI credit promo clip
 
   Scenario: Alex adds demo AI credit and views usage

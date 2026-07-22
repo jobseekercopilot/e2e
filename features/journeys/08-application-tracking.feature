@@ -1,3 +1,4 @@
+@demo
 Feature: Application tracking promo clip
 
   Scenario: Alex moves an application to interview

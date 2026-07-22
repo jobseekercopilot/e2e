@@ -1,3 +1,4 @@
+@demo
 Feature: Demo trailer journey
 
   Scenario: A job seeker creates a workspace and begins an application journey

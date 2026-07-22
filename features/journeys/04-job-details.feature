@@ -1,3 +1,4 @@
+@demo
 Feature: Job details promo clip
 
   Scenario: Alex opens a software developer job

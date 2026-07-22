@@ -56,10 +56,58 @@ npm run test:ci
 npm run verify
 ```
 
-`npm run verify` is the clean-clone baseline: tracked-file policy, TypeScript,
-all 19 Cucumber scenarios/113 step definitions in dry-run mode, and the 15
-Playwright support tests. It does not claim that the current broad Compose
-stack or the complete beta browser journey passes.
+The authoritative suite uses one primary tag per feature:
+
+| Profile | Primary tag | Command | Purpose |
+|---|---|---|---|
+| Demo | `@demo` | `npm run test:demo` | Preserved promo and recording journeys |
+| Smoke | `@smoke` | `npm run test:smoke:ci` | No-secret framework/stack smoke checks |
+| E2E | `@e2e` | `npm run test:e2e` | Positive beta user journeys |
+| Security | `@security` | `npm run test:security` | Authentication and access-control failures |
+| Provider failure | `@provider-failure` | `npm run test:provider-failure` | Controlled upstream failure behaviour |
+| Accessibility | `@accessibility` | `npm run test:accessibility` | Automated accessibility and resilient UX |
+
+Secondary tags may describe a scenario, but the profile policy rejects missing
+or overlapping primary tags. All imported journeys are explicitly `@demo`.
+The beta profiles are intentionally empty except for the no-browser framework
+smoke until E2E-03 and E2E-04 add the approved stack and product journeys.
+
+`npm run verify` is the clean-clone baseline: tracked-file and profile-tag
+policies, TypeScript, every Cucumber profile in dry-run mode, the no-secret
+smoke scenario, and Playwright support tests. It does not claim that the broad
+historical Compose stack or the complete beta browser journey passes.
+
+## Synthetic identities and cleanup
+
+Beta journeys must create identities with `createSyntheticEmail`, register each
+one on the Cucumber world with `registerSyntheticUser`, and enable the approved
+local cleanup adapter:
+
+```text
+E2E_CLEANUP_ENABLED=true
+E2E_CLEANUP_BASE_URL=http://localhost:8080
+```
+
+Cleanup posts only reserved `jsc-e2e-*@users.jobseekercopilot.test` identities
+to the loopback-only `/internal/test-support/users/cleanup` endpoint. It fails
+closed for demo runs, remote/HTTPS targets, disabled cleanup and all other
+email namespaces. `E2E_CLEANUP_TOKEN`, when the minimal stack requires it, is
+runtime-only and must never be written to files or uploaded.
+
+## Failure evidence and authentication state
+
+Beta browser profiles retain trace, screenshot and a metadata-only JSON report
+only when a scenario fails. Names combine a safe scenario slug, timestamp and
+UUID, and `MAX_FAILURE_ARTIFACTS` bounds local retention (default 20 files).
+CI uploads only failure screenshots and metadata reports for three days. Trace
+archives remain local because they can contain request/session details; CI does
+not publish them, `.auth`, environment files, demo media, cookies or reusable
+storage state. Treat all retained evidence as private synthetic test material.
+
+Reusable storage state is disabled by default and forbidden in every beta
+profile. A demo operator must explicitly set both `DEMO_MODE=true` and
+`SAVE_DEMO_SESSION=true` to write ignored state, or `USE_SAVED_SESSION=true` to
+read it. Passing arbitrary scenarios no longer save browser state.
 
 ## Fixture Preflight
 

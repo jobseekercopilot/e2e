@@ -1,3 +1,4 @@
+@demo
 Feature: ORGANISE
 
   Scenario: Alex organises generated documents

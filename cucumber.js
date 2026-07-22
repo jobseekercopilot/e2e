@@ -1,12 +1,34 @@
+const common = {
+  requireModule: ['ts-node/register'],
+  require: ['support/**/*.ts', 'steps/**/*.ts'],
+  timeout: 120000,
+  parallel: 1
+};
+
+const betaFormat = ['progress'];
+
 module.exports = {
   default: {
-    requireModule: ['ts-node/register'],
-    require: ['support/**/*.ts', 'steps/**/*.ts'],
+    ...common,
+    tags: '@demo',
+    format: ['progress']
+  },
+  demo: {
+    ...common,
+    tags: '@demo',
     format: [
       'progress',
-      'html:reports/cucumber-report.html',
-      'json:reports/cucumber-report.json'
-    ],
-    timeout: 120000
-  }
+      'html:reports/demo/cucumber-report.html',
+      'json:reports/demo/cucumber-report.json'
+    ]
+  },
+  smoke: { ...common, tags: '@smoke and not @demo', format: betaFormat },
+  e2e: {
+    ...common,
+    tags: '@e2e and not @demo and not @smoke and not @security and not @provider-failure and not @accessibility',
+    format: betaFormat
+  },
+  security: { ...common, tags: '@security and not @demo', format: betaFormat },
+  providerFailure: { ...common, tags: '@provider-failure and not @demo', format: betaFormat },
+  accessibility: { ...common, tags: '@accessibility and not @demo', format: betaFormat }
 };

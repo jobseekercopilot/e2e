@@ -2,10 +2,10 @@
 
 Audit date: 22 July 2026
 
-Status: **Not beta-ready.** The existing Playwright/Cucumber source is now
-assigned an independent private home, but tagged beta profiles, an approved
-minimal stack, isolated cleanup, complete security/provider/accessibility
-journeys and environment evidence remain open.
+Status: **Not beta-ready.** The existing Playwright/Cucumber source has an
+independent private home and beta-safe execution foundations, but an approved
+minimal stack, complete security/provider/accessibility journeys and
+environment evidence remain open.
 
 ## Responsibilities and consumers
 
@@ -31,6 +31,8 @@ do not replace.
   generated artifacts before import and found no leaks.
 - Isolated `npm ci`, TypeScript checking, a 19-scenario/113-step Cucumber
   dry-run and 15 Playwright support tests passed.
+- E2E-02 verification covers 20 scenarios/114 steps across all dry-run
+  profiles, one executable no-secret smoke scenario, and 22 Playwright tests.
 - The locked dependency tree has no Critical/High advisory. Five Moderate
   `uuid` findings through Cucumber remain tracked by E2E-06.
 
@@ -39,7 +41,7 @@ do not replace.
 | Issue | Finding | Severity / priority | Dependency | Beta blocker |
 |---|---|---|---|---|
 | E2E-01 | Import and baseline the authoritative framework | High / P1 | None | Yes |
-| E2E-02 | Add tagged profiles, isolated cleanup and CI artifacts | High / P1 | E2E-01 | Yes |
+| E2E-02 | Add tagged profiles, isolated cleanup and CI artifacts | High / P1 | E2E-01 | Implemented; merge evidence in issue |
 | E2E-03 | Replace the broad stale 26-service Compose path with the minimum approved stack | High / P1 | E2E-01; system-data decision if used | Yes |
 | E2E-04 | Prove complete beta auth/profile/location security and provider failures | High / P1 | E2E-02/03 and service test blockers | Yes |
 | E2E-05 | Add accessibility and resilient-UX evidence | Medium / P1 | E2E-02/03 and CLIENT-08 | Yes |
@@ -53,6 +55,19 @@ stale H2 auth/profile configuration, no merged JWT/JWKS/service-identity/session
 settings and a system-data fixture dependency. It was not started during this
 audit and must not be used as beta evidence. E2E-03 owns the minimum replacement
 and must audit system-data-service before making it a maintained dependency.
+
+## E2E-02 evidence
+
+- Historical scenarios are retained under `@demo`; smoke, E2E, security,
+  provider-failure and accessibility have explicit non-overlapping profiles.
+- A checked policy rejects feature files with missing or multiple primary tags.
+- Collision-resistant identities use a reserved `.test` namespace. Cleanup is
+  opt-in, rejects non-synthetic users, and is restricted to HTTP loopback.
+- Beta Cucumber hooks retain unique, bounded traces, screenshots and sanitized
+  metadata reports only on failure. Reusable state is demo-only and opt-in.
+- CI executes a no-secret framework smoke and uploads only screenshots and
+  sanitized metadata for three days; trace archives stay local to avoid
+  publishing session details. Product smoke journeys await E2E-03's stack.
 
 ## Definition of Done
 
