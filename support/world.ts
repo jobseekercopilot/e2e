@@ -12,6 +12,7 @@ import { NavigationPage } from '../pages/NavigationPage';
 import { RegisterPage } from '../pages/RegisterPage';
 import { e2eConfig } from './config';
 import { createRunId } from './synthetic-data';
+import type { NamedState, NamedStateDefinition, SystemDataClient } from './system-data';
 
 export interface QualificationFixture {
   name: string;
@@ -53,6 +54,9 @@ export class JobSeekerWorld extends World {
   readonly runId = createRunId();
   readonly syntheticUsers = new Set<string>();
   tracingStarted = false;
+  namedState?: NamedState;
+  namedStateDefinition?: NamedStateDefinition;
+  systemDataClient?: SystemDataClient;
   readonly config = e2eConfig;
 
   registerPage?: RegisterPage;
