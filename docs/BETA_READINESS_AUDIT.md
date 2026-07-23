@@ -44,7 +44,7 @@ do not replace.
 | E2E-02 | Add tagged profiles, isolated cleanup and CI artifacts | High / P1 | E2E-01 | Implemented; merge evidence in issue |
 | E2E-03 | Replace the broad stale 26-service Compose path with the minimum approved stack | High / P1 | E2E-01/02, SD-07/09 and E2E-10 | Remediation in delivery |
 | E2E-04 | Prove complete beta auth/profile/location security and provider failures | High / P1 | E2E-02/03 and service test blockers | Yes |
-| E2E-05 | Add accessibility and resilient-UX evidence | Medium / P1 | E2E-02/03 and CLIENT-08 | Yes |
+| E2E-05 | Add accessibility and resilient-UX evidence | Medium / P1 | E2E-02/03 and CLIENT-08 complete | Remediated in repository |
 | E2E-06 | Align supported Node and remediate Moderate dependencies | Medium / P2 | E2E-01 | No |
 | E2E-10 | Prevent false-green zero-commit secret scans | High / P1 | None | Implemented; merge evidence in issue |
 

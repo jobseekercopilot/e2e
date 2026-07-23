@@ -60,6 +60,10 @@ test('source revisions, teardown and local guard are explicit', () => {
   expect(script).toContain("compose(['down', '--volumes', '--remove-orphans'])");
   expect(script).toContain("compose(['up', '--detach', '--wait'])");
   expect(script).toContain("compose(['stop', 'postcode-io-gateway'])");
+  expect(script).toContain('accessibility();');
+  expect(script).toContain("'test:accessibility'");
+  expect(script).toContain('smoke();\n    // Public registration assigns a random account ID');
+  expect(script).toContain('reset();\n    accessibility();');
 });
 
 test('all published ports are loopback-only and providers remain fixture-backed', () => {

@@ -53,6 +53,8 @@ export class JobSeekerWorld extends World {
   demoDownloads: string[] = [];
   readonly runId = createRunId();
   readonly syntheticUsers = new Set<string>();
+  registrationRequestCount = 0;
+  profileUpdateRequestCount = 0;
   tracingStarted = false;
   namedState?: NamedState;
   namedStateDefinition?: NamedStateDefinition;

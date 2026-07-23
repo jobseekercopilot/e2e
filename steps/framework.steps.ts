@@ -10,3 +10,12 @@ Then('the smoke execution profile is fail-closed', function (this: JobSeekerWorl
   assert.equal(this.browser, undefined);
   assert.equal(this.context, undefined);
 });
+
+Then('the accessibility execution profile is fail-closed', function (this: JobSeekerWorld) {
+  assert.equal(this.config.profile, 'accessibility');
+  assert.equal(this.config.demoMode, false);
+  assert.equal(this.config.useSavedSession, false);
+  assert.equal(this.config.saveDemoSession, false);
+  assert.equal(this.browser, undefined);
+  assert.equal(this.context, undefined);
+});
