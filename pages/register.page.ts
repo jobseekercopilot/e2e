@@ -70,7 +70,14 @@ export class RegisterPage extends BasePage {
   private async enterJobSearchPreferences(user: DemoUser): Promise<void> {
     // TODO frontend: add data-testid="registration-home-location-input" to the home location field.
     await this.humanFillFramed(this.page.getByLabel(/home location/i), user.homeLocation);
-    await this.page.keyboard.press('Tab');
+    if (e2eConfig.profile === 'demo') {
+      await this.page.keyboard.press('Tab');
+    } else {
+      const suggestions = this.byTestId('registration-location-suggestions')
+        .or(this.page.getByRole('button', { name: new RegExp(user.homeLocation.replace(/\s+/g, '\\s*'), 'i') }));
+      await expect(suggestions.first()).toBeVisible();
+      await suggestions.first().click();
+    }
 
     // TODO frontend: make commute options match fixture wording or add data-testid="registration-commute-select".
     const miles = user.commuteRange.match(/\d+/)?.[0] ?? '10';

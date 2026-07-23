@@ -14,6 +14,7 @@ playwright-report/
 blob-report/
 demo-recordings/
 downloads/
+.runtime/
 
 *.webm
 *.mp4
