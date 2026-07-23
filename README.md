@@ -61,7 +61,7 @@ The authoritative suite uses one primary tag per feature:
 | Profile | Primary tag | Command | Purpose |
 |---|---|---|---|
 | Demo | `@demo` | `npm run test:demo` | Preserved promo and recording journeys |
-| Smoke | `@smoke` | `npm run test:smoke:ci` | No-secret framework/stack smoke checks |
+| Smoke | `@smoke` | `npm run test:smoke:ci` | No-secret framework smoke checks |
 | E2E | `@e2e` | `npm run test:e2e` | Positive beta user journeys |
 | Security | `@security` | `npm run test:security` | Authentication and access-control failures |
 | Provider failure | `@provider-failure` | `npm run test:provider-failure` | Controlled upstream failure behaviour |
@@ -69,8 +69,10 @@ The authoritative suite uses one primary tag per feature:
 
 Secondary tags may describe a scenario, but the profile policy rejects missing
 or overlapping primary tags. All imported journeys are explicitly `@demo`.
-The beta profiles are intentionally empty except for the no-browser framework
-smoke until E2E-03 and E2E-04 add the approved stack and product journeys.
+The smoke profile contains the no-browser framework check plus the `@stack`
+registration, login, profile and location journeys. The stack journeys run
+only through the guarded minimum stack documented in
+[docs/BETA_STACK.md](docs/BETA_STACK.md); they are excluded from no-secret CI.
 
 `npm run verify` is the clean-clone baseline: tracked-file and profile-tag
 policies, TypeScript, every Cucumber profile in dry-run mode, the no-secret
@@ -114,7 +116,15 @@ profile. A demo operator must explicitly set both `DEMO_MODE=true` and
 `SAVE_DEMO_SESSION=true` to write ignored state, or `USE_SAVED_SESSION=true` to
 read it. Passing arbitrary scenarios no longer save browser state.
 
-## Fixture Preflight
+## Minimum beta stack
+
+The approved nine-component stack, exact source revisions, generated local
+credentials, clean build, readiness, isolated schema lifecycle, browser smoke,
+dependency-failure proof, unprivileged PostgreSQL runtime, blocking image
+scans, ports and troubleshooting are documented in
+[docs/BETA_STACK.md](docs/BETA_STACK.md).
+
+## Historical demo fixture preflight
 
 The historical broad demo stack configuration remains in the parent workspace,
 not this repository. Its Compose model parses but currently spans 26 services,

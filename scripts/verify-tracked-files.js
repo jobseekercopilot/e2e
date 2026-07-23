@@ -4,7 +4,7 @@ const files = fs.readFileSync(0, 'utf8')
   .split('\0')
   .filter(Boolean);
 
-const forbiddenDirectories = /(^|\/)(node_modules|dist|reports|screenshots|videos|\.auth|test-results|playwright-report|blob-report|demo-recordings|downloads)(\/|$)/;
+const forbiddenDirectories = /(^|\/)(node_modules|dist|reports|screenshots|videos|\.auth|\.runtime|test-results|playwright-report|blob-report|demo-recordings|downloads)(\/|$)/;
 const forbiddenExtensions = /\.(webm|mp4|zip)$/i;
 const forbiddenEnvironment = /(^|\/)\.env(?:\..+)?$/;
 

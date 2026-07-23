@@ -42,11 +42,11 @@ do not replace.
 |---|---|---|---|---|
 | E2E-01 | Import and baseline the authoritative framework | High / P1 | None | Yes |
 | E2E-02 | Add tagged profiles, isolated cleanup and CI artifacts | High / P1 | E2E-01 | Implemented; merge evidence in issue |
-| E2E-03 | Replace the broad stale 26-service Compose path with the minimum approved stack | High / P1 | E2E-01/02 and SD-07 | Yes |
+| E2E-03 | Replace the broad stale 26-service Compose path with the minimum approved stack | High / P1 | E2E-01/02, SD-07/09 and E2E-10 | Remediation in delivery |
 | E2E-04 | Prove complete beta auth/profile/location security and provider failures | High / P1 | E2E-02/03 and service test blockers | Yes |
 | E2E-05 | Add accessibility and resilient-UX evidence | Medium / P1 | E2E-02/03 and CLIENT-08 | Yes |
 | E2E-06 | Align supported Node and remediate Moderate dependencies | Medium / P2 | E2E-01 | No |
-| E2E-10 | Prevent false-green zero-commit secret scans | High / P1 | None | Remediation in delivery |
+| E2E-10 | Prevent false-green zero-commit secret scans | High / P1 | None | Implemented; merge evidence in issue |
 
 ## Current Compose assessment
 
@@ -57,6 +57,18 @@ settings and a system-data fixture dependency. It was not started during this
 audit and must not be used as beta evidence. System-data is now independently
 audited and SD-07 supplies its bounded E2E client; E2E-03 owns the minimum
 replacement stack and actual cross-service proof.
+
+The E2E-03 implementation defines nine approved components, loopback-only
+ports, PostgreSQL/Flyway, asymmetric JWT/JWKS, cookie/CSRF and distinct
+service/environment credentials. Exact clean private source revisions are
+checked before generated runtime configuration is written mode `0600`.
+Postcode behavior is fixture-backed through system-data with no live provider.
+Clean Maven verification and no-cache image builds pass at the pinned revisions.
+All eight distinct images have zero fixed Critical/High findings under pinned
+Trivy 0.72.0. The nine-service stack reaches healthy, its three browser
+scenarios pass all 14 steps, a stopped postcode dependency produces a bounded
+HTTP 504 without implementation leakage, recovery succeeds, and final teardown
+removes the containers, network and both database volumes.
 
 ## E2E-02 evidence
 
