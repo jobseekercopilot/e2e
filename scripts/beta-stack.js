@@ -139,6 +139,11 @@ function smoke() {
   run('npm', ['run', 'test:smoke:stack'], {env: {...process.env, E2E_BASE_URL: 'http://localhost:3100', SYSTEM_DATA_SERVICE_URL: 'http://localhost:9103', SYSTEM_DATA_INTERNAL_CALLER_KEY: entries.SYSTEM_DATA_INTERNAL_CALLER_KEY}});
 }
 
+function accessibility() {
+  const entries = readRuntimeEnvironment();
+  run('npm', ['run', 'test:accessibility'], {env: {...process.env, E2E_BASE_URL: 'http://localhost:3100', SYSTEM_DATA_SERVICE_URL: 'http://localhost:9103', SYSTEM_DATA_INTERNAL_CALLER_KEY: entries.SYSTEM_DATA_INTERNAL_CALLER_KEY}});
+}
+
 function reset() {
   compose(['down', '--volumes', '--remove-orphans']);
   compose(['up', '--detach', '--wait']);
@@ -168,6 +173,11 @@ async function verifyStack() {
   reset();
   try {
     smoke();
+    // Public registration assigns a random account ID, while the named-state
+    // reset targets its deterministic fixture ID. Recreate the two bounded
+    // local schemas so stateful profiles cannot contaminate each other.
+    reset();
+    accessibility();
     await dependencyFailure();
   } catch (error) {
     try { compose(['logs', '--no-color', '--tail', '200']); } catch { /* retain original failure */ }
@@ -186,6 +196,7 @@ async function main() {
   else if (action === 'up') compose(['up', '--detach', '--wait']);
   else if (action === 'reset') reset();
   else if (action === 'smoke') smoke();
+  else if (action === 'accessibility') accessibility();
   else if (action === 'dependency-failure') await dependencyFailure();
   else if (action === 'verify') await verifyStack();
   else if (action === 'logs') compose(['logs', '--no-color']);

@@ -14,6 +14,7 @@
     "test:security": "E2E_PROFILE=security DEMO_MODE=false USE_SAVED_SESSION=false SAVE_DEMO_SESSION=false HEADLESS=true RECORD_VIDEO=false cucumber-js --profile security",
     "test:provider-failure": "E2E_PROFILE=provider-failure DEMO_MODE=false USE_SAVED_SESSION=false SAVE_DEMO_SESSION=false HEADLESS=true RECORD_VIDEO=false cucumber-js --profile providerFailure",
     "test:accessibility": "E2E_PROFILE=accessibility DEMO_MODE=false USE_SAVED_SESSION=false SAVE_DEMO_SESSION=false HEADLESS=true RECORD_VIDEO=false cucumber-js --profile accessibility",
+    "test:accessibility:ci": "E2E_PROFILE=accessibility DEMO_MODE=false USE_SAVED_SESSION=false SAVE_DEMO_SESSION=false HEADLESS=true RECORD_VIDEO=false cucumber-js --profile accessibility --tags '@framework'",
     "test:definitions": "E2E_PROFILE=demo cucumber-js --profile demo --dry-run && E2E_PROFILE=smoke DEMO_MODE=false USE_SAVED_SESSION=false SAVE_DEMO_SESSION=false cucumber-js --profile smoke --dry-run && E2E_PROFILE=e2e DEMO_MODE=false USE_SAVED_SESSION=false SAVE_DEMO_SESSION=false cucumber-js --profile e2e --dry-run && E2E_PROFILE=security DEMO_MODE=false USE_SAVED_SESSION=false SAVE_DEMO_SESSION=false cucumber-js --profile security --dry-run && E2E_PROFILE=provider-failure DEMO_MODE=false USE_SAVED_SESSION=false SAVE_DEMO_SESSION=false cucumber-js --profile providerFailure --dry-run && E2E_PROFILE=accessibility DEMO_MODE=false USE_SAVED_SESSION=false SAVE_DEMO_SESSION=false cucumber-js --profile accessibility --dry-run",
     "test:support": "HEADLESS=true RECORD_VIDEO=false playwright test",
     "record": "REVIEW_SET=final node scripts/record-review-set.js",
@@ -25,7 +26,7 @@
     "typecheck": "tsc --noEmit",
     "verify:tracked-files": "git ls-files --cached --others --exclude-standard -z | node scripts/verify-tracked-files.js",
     "verify:profiles": "node scripts/verify-profile-tags.js",
-    "verify": "npm run verify:tracked-files && npm run verify:profiles && npm run typecheck && npm run test:definitions && npm run test:smoke:ci && npm run test:support",
+    "verify": "npm run verify:tracked-files && npm run verify:profiles && npm run typecheck && npm run test:definitions && npm run test:smoke:ci && npm run test:accessibility:ci && npm run test:support",
     "stack:prepare": "node scripts/beta-stack.js prepare",
     "stack:validate": "node scripts/beta-stack.js validate",
     "stack:config": "node scripts/beta-stack.js config",
@@ -34,6 +35,7 @@
     "stack:up": "node scripts/beta-stack.js up",
     "stack:reset": "node scripts/beta-stack.js reset",
     "stack:smoke": "node scripts/beta-stack.js smoke",
+    "stack:accessibility": "node scripts/beta-stack.js accessibility",
     "stack:dependency-failure": "node scripts/beta-stack.js dependency-failure",
     "stack:verify": "node scripts/beta-stack.js verify",
     "stack:logs": "node scripts/beta-stack.js logs",
@@ -47,6 +49,7 @@
     "typescript": "^5.8.3"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.12.1",
     "@types/node": "^22.13.14"
   }
 }

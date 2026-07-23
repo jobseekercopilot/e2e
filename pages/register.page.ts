@@ -33,6 +33,7 @@ export class RegisterPage extends BasePage {
     await this.clickFramed(
       this.byTestId('sign-in-tab')
         .or(this.page.locator('#tab-btn-signin'))
+        .or(this.page.getByRole('tab', { name: /sign in/i }))
         .or(this.page.getByRole('button', { name: /sign in/i }))
     );
     await this.humanFillInPlace(this.page.getByLabel(/email address/i), user.email);
@@ -45,8 +46,10 @@ export class RegisterPage extends BasePage {
   }
 
   private async startCreateProfile(): Promise<void> {
-    // TODO frontend: add data-testid="create-profile-tab" to the Create Profile tab.
-    const createProfileTab = this.byTestId('create-profile-tab').or(this.page.getByRole('button', { name: /create profile/i }));
+    const createProfileTab = this.byTestId('create-profile-tab')
+      .or(this.page.locator('#tab-btn-create'))
+      .or(this.page.getByRole('tab', { name: /create profile/i }))
+      .or(this.page.getByRole('button', { name: /create profile/i }));
     await this.clickFramed(createProfileTab);
   }
 

@@ -73,11 +73,16 @@ The smoke profile contains the no-browser framework check plus the `@stack`
 registration, login, profile and location journeys. The stack journeys run
 only through the guarded minimum stack documented in
 [docs/BETA_STACK.md](docs/BETA_STACK.md); they are excluded from no-secret CI.
+The accessibility profile is documented in
+[docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md) and is included in guarded local
+`stack:verify`; CI runs its no-browser fail-closed scenario and validates all
+tag/step definitions without claiming a secret-bearing Compose run.
 
 `npm run verify` is the clean-clone baseline: tracked-file and profile-tag
 policies, TypeScript, every Cucumber profile in dry-run mode, the no-secret
-smoke scenario, and Playwright support tests. It does not claim that the broad
-historical Compose stack or the complete beta browser journey passes.
+smoke and accessibility configuration scenarios, and Playwright support tests.
+It does not claim that the broad historical Compose stack or the complete beta
+browser journey passes.
 
 ## Synthetic identities and cleanup
 

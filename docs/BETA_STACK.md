@@ -42,11 +42,15 @@ allowing an older local application layer or tag to survive validation.
 
 `stack:verify` removes only the fixed `jsc-user-management-beta` local volumes,
 starts the stack with readiness checks, runs the tagged registration, login,
-profile and fixture-backed postcode browser smoke journeys, proves a bounded
-503 or 504 when the postcode dependency is stopped, restores it, and removes the
-containers and volumes in a `finally` path. On failure it prints the last 200
-container log lines before teardown. It never targets a remote Docker context,
-production profile, live provider, or user dataset.
+profile and fixture-backed postcode browser smoke journeys, recreates the two
+bounded database volumes, then runs the tagged keyboard/axe/resilient-UX
+accessibility path. This profile boundary is required because public
+registration assigns a random account ID that the deterministic named-state
+reset cannot address. The command then proves a bounded 503 or 504 when the
+postcode dependency is stopped, restores it, and removes the containers and
+volumes in a `finally` path. On failure it prints the last 200 container log
+lines before teardown. It never targets a remote Docker context, production
+profile, live provider, or user dataset.
 
 Both databases use one local derivative of the digest-pinned PostgreSQL image.
 It removes the root-switching `gosu` helper and declares the existing
@@ -65,6 +69,7 @@ Individual diagnostic commands are available:
 ```bash
 npm run stack:up
 npm run stack:smoke
+npm run stack:accessibility
 npm run stack:dependency-failure
 npm run stack:logs
 npm run stack:reset
@@ -75,9 +80,9 @@ npm run stack:down
 name, local guard value and permissions before deleting the two explicitly
 named beta-stack volumes. The registration named state currently removes its
 deterministic fixture identity, while public registration creates a random
-account ID; therefore the complete verification command also recreates the
-ephemeral schemas before the run and removes them afterward. No database is
-accessed directly by E2E code.
+account ID; therefore the complete verification command recreates the
+ephemeral schemas before each stateful browser profile and removes them
+afterward. No database is accessed directly by E2E code.
 
 ## Ports and troubleshooting
 
