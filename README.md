@@ -8,6 +8,10 @@ It serves two related purposes:
 1. E2E regression testing for user journeys.
 2. Repeatable promo recordings for product trailers, website clips and LinkedIn demos.
 
+Its Job Search journey and evidence ownership, and its boundary with System
+Data, are defined in the Infrastructure
+[Job Search architecture ADR](https://github.com/jobseekercopilot/infrastructure/blob/develop/docs/adr/0001-job-search-architecture-and-ownership.md).
+
 It is maintained independently from the Angular application and Spring Boot
 services. It does not duplicate another browser framework. Demo journeys are
 preserved while beta-grade execution profiles and coverage are tracked in the
