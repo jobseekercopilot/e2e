@@ -17,9 +17,9 @@ sibling paths with the corresponding `*_REPOSITORY` environment variable.
 
 ## Local run
 
-Prerequisites are Node 22, npm, Java 17/Maven for the six JVM builds, Docker
-with Compose v2, and enough capacity for nine containers (allow roughly 8 GB
-RAM and 12 GB free disk while building).
+Prerequisites are Node 24.18.0 or a newer Node 24 LTS patch, npm, Java 17/Maven
+for the six JVM builds, Docker with Compose v2, and enough capacity for nine
+containers (allow roughly 8 GB RAM and 12 GB free disk while building).
 
 ```bash
 npm ci

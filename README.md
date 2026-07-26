@@ -20,15 +20,21 @@ preserved while beta-grade execution profiles and coverage are tracked in the
 ## Install
 
 ```bash
+nvm use
 npm ci
 npm run playwright:install
 npm run verify
-npm audit --audit-level=high
 ```
 
-Use Node 22. Copy `.env.example` to `.env` for local overrides. Real `.env`
-files, browser authentication state, reports, screenshots and recordings are
-ignored and must never be committed.
+Use Node 24.18.0 or a newer Node 24 LTS patch. `.nvmrc`, the package engine
+range and the verification script enforce that baseline. `npm run verify`
+includes the tested dependency policy: unaccepted Critical/High findings fail
+and any Moderate residual risk must be explicitly recorded. See
+[the dependency policy](docs/DEPENDENCY_POLICY.md).
+
+Copy `.env.example` to `.env` for local overrides. Real `.env` files, browser
+authentication state, reports, screenshots and recordings are ignored and
+must never be committed.
 
 ## Configuration
 
@@ -290,9 +296,11 @@ spending-log
 - Never perform a real Stripe payment in promo automation; the AI credit journey stops before checkout.
 - Add richer seeded demo data for documents, applications, spending log and activity timeline.
 
-Beta-blocking audit work is tracked in private E2E-02 through E2E-05. E2E-06
-tracks the five current Moderate Cucumber/uuid dependency findings and runtime
-support alignment. There is no accepted Critical or High dependency finding.
+Beta-blocking audit work is tracked in private E2E-02 through E2E-05. During
+E2E-06, the live advisory result for the old Cucumber 11 lock had increased to
+four High and four Moderate findings. The supported Cucumber 13.2.0 release and
+Node 24 LTS baseline remove those findings without force or audit overrides.
+There is no accepted dependency finding in the current policy.
 
 ## Import provenance and ownership
 

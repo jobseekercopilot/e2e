@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "Playwright, Cucumber and TypeScript E2E tests for Job Seeker Copilot.",
+  "engines": {
+    "node": ">=24.18.0 <25"
+  },
   "scripts": {
     "test": "npm run test:demo",
     "test:demo": "E2E_PROFILE=demo cucumber-js --profile demo",
@@ -24,9 +27,12 @@
     "playwright:install": "playwright install chromium",
     "playwright:install:ci": "playwright install --with-deps chromium",
     "typecheck": "tsc --noEmit",
+    "verify:runtime": "node scripts/verify-node-runtime.js",
+    "test:dependency-policy": "node scripts/test-dependency-policy.js",
+    "audit:policy": "node scripts/dependency-policy.js",
     "verify:tracked-files": "git ls-files --cached --others --exclude-standard -z | node scripts/verify-tracked-files.js",
     "verify:profiles": "node scripts/verify-profile-tags.js",
-    "verify": "npm run verify:tracked-files && npm run verify:profiles && npm run typecheck && npm run test:definitions && npm run test:smoke:ci && npm run test:accessibility:ci && npm run test:support",
+    "verify": "npm run verify:runtime && npm run test:dependency-policy && npm run audit:policy && npm run verify:tracked-files && npm run verify:profiles && npm run typecheck && npm run test:definitions && npm run test:smoke:ci && npm run test:accessibility:ci && npm run test:support",
     "stack:prepare": "node scripts/beta-stack.js prepare",
     "stack:validate": "node scripts/beta-stack.js validate",
     "stack:config": "node scripts/beta-stack.js config",
@@ -42,7 +48,7 @@
     "stack:down": "node scripts/beta-stack.js down"
   },
   "dependencies": {
-    "@cucumber/cucumber": "^11.2.0",
+    "@cucumber/cucumber": "13.2.0",
     "@playwright/test": "^1.54.0",
     "dotenv": "^16.4.7",
     "ts-node": "^10.9.2",
@@ -50,6 +56,6 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "4.12.1",
-    "@types/node": "^22.13.14"
+    "@types/node": "24.13.3"
   }
 }

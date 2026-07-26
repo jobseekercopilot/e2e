@@ -2,7 +2,10 @@ const common = {
   requireModule: ['ts-node/register'],
   require: ['support/**/*.ts', 'steps/**/*.ts'],
   timeout: 120000,
-  parallel: 1
+  // Cucumber 13 treats any positive value as worker-process mode. Sequential
+  // execution preserves shared browser/state lifecycle and exits cleanly when
+  // a profile intentionally has no scenarios yet.
+  parallel: 0
 };
 
 const betaFormat = ['progress'];

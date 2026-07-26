@@ -40,7 +40,7 @@ jobs:
           retention-days: 3
           include-hidden-files: false
       - name: Reject unaccepted Critical or High dependencies
-        run: npm audit --audit-level=high
+        run: npm run audit:policy
 
   secrets:
     runs-on: ubuntu-latest

@@ -1,6 +1,6 @@
 # Beta-readiness audit: browser automation
 
-Audit date: 22 July 2026
+Audit date: 22 July 2026; dependency evidence refreshed 26 July 2026
 
 Status: **Not beta-ready.** The existing Playwright/Cucumber source has an
 independent private home and beta-safe execution foundations, but an approved
@@ -33,8 +33,13 @@ do not replace.
   dry-run and 15 Playwright support tests passed.
 - E2E-02 verification covers 20 scenarios/114 steps across all dry-run
   profiles, one executable no-secret smoke scenario, and 22 Playwright tests.
-- The locked dependency tree has no Critical/High advisory. Five Moderate
-  `uuid` findings through Cucumber remain tracked by E2E-06.
+- A refreshed audit of the old Cucumber 11 lock on 26 July found four High and
+  four Moderate findings, superseding the original five-Moderate snapshot.
+  Cucumber 13.2.0 removes the affected transitive tree; the replacement lock
+  has zero known findings.
+- Node 24.18.0 LTS is the supported baseline. The repository accepts newer
+  Node 24 security patches, while local verification rejects older and
+  non-24 runtimes.
 
 ## Findings
 
@@ -45,7 +50,7 @@ do not replace.
 | E2E-03 | Replace the broad stale 26-service Compose path with the minimum approved stack | High / P1 | E2E-01/02, SD-07/09 and E2E-10 | Remediation in delivery |
 | E2E-04 | Prove complete beta auth/profile/location security and provider failures | High / P1 | E2E-02/03 and service test blockers | Yes |
 | E2E-05 | Add accessibility and resilient-UX evidence | Medium / P1 | E2E-02/03 and CLIENT-08 complete | Remediated in repository |
-| E2E-06 | Align supported Node and remediate Moderate dependencies | Medium / P2 | E2E-01 | No |
+| E2E-06 | Align supported Node and remediate dependency findings | High / P1 | E2E-01 | Resolved by supported Cucumber 13.2.0 and Node 24 LTS alignment |
 | E2E-10 | Prevent false-green zero-commit secret scans | High / P1 | None | Implemented; merge evidence in issue |
 
 ## Current Compose assessment
