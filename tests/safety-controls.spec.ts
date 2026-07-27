@@ -6,7 +6,17 @@ import { cleanupSyntheticUser, type FetchLike } from '../support/cleanup';
 import { pruneArtifacts, safeArtifactStem, writeFailureReport } from '../support/artifacts';
 import { createRunId, createSyntheticEmail, isSyntheticEmail } from '../support/synthetic-data';
 import { assertRelativeArtifactPath, readProfile, validateSessionPolicy } from '../support/config-policy';
+import alexTaylor from '../fixtures/users/alex-taylor.json';
 const { findProfileTagViolations } = require('../scripts/profile-tag-policy');
+
+test('shared synthetic demo password satisfies the current registration policy', () => {
+  expect(alexTaylor.password).toHaveLength(22);
+  expect(alexTaylor.password).toMatch(/[A-Z]/);
+  expect(alexTaylor.password).toMatch(/[a-z]/);
+  expect(alexTaylor.password).toMatch(/[0-9]/);
+  expect(alexTaylor.password).toMatch(/[^A-Za-z0-9]/);
+  expect(alexTaylor.homeLocation).toMatch(/^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/);
+});
 
 test('synthetic identities are collision-resistant and recognisably test-only', () => {
   const runId = createRunId('worker-3');
@@ -115,4 +125,14 @@ test('profile policy accepts one primary tag and rejects missing or overlapping 
   expect(violations).toHaveLength(3);
   expect(violations.join('\n')).toContain('exactly one primary profile tag');
   expect(violations.join('\n')).toContain('belongs to @demo');
+});
+
+test('job search opens the active beta root instead of the retired dashboard route', async () => {
+  const pageObject = await fs.readFile(
+    path.resolve(__dirname, '../pages/JobSearchPage.ts'),
+    'utf8'
+  );
+
+  expect(pageObject).toContain("await this.page.goto('/');");
+  expect(pageObject).not.toContain("await this.page.goto('/dashboard');");
 });

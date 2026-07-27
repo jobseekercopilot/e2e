@@ -14,7 +14,7 @@ export class JobSearchPage extends BasePage {
   }
 
   async open(): Promise<void> {
-    await this.page.goto('/dashboard');
+    await this.page.goto('/');
     await this.clickFramed(
       this.byTestId('workspace-tab-search')
         .or(this.page.getByRole('button', { name: /search results|find new opportunities/i }))

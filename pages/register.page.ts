@@ -89,10 +89,23 @@ export class RegisterPage extends BasePage {
 
   private async submitRegistration(): Promise<void> {
     // TODO frontend: add data-testid="submit-registration-button" to the final create profile button.
+    const responsePromise = this.page.waitForResponse(response =>
+      response.request().method() === 'POST'
+      && response.url().includes('/api/auth/register')
+    );
     await this.clickFramed(
       this.byTestId('submit-registration-button')
         .or(this.page.locator('#btn-submit-signup'))
     );
+    const response = await responsePromise;
+    if (!response.ok()) {
+      throw new Error(
+        `Registration failed with HTTP ${response.status()}: ${await response.text()}`
+      );
+    }
+    await expect(
+      this.page.getByRole('heading', { name: 'Claimant Profile', exact: true })
+    ).toBeVisible();
   }
 
   private async clickNextStep(): Promise<void> {
