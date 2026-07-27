@@ -15,6 +15,7 @@ test('shared synthetic demo password satisfies the current registration policy',
   expect(alexTaylor.password).toMatch(/[a-z]/);
   expect(alexTaylor.password).toMatch(/[0-9]/);
   expect(alexTaylor.password).toMatch(/[^A-Za-z0-9]/);
+  expect(alexTaylor.homeLocation).toMatch(/^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/);
 });
 
 test('synthetic identities are collision-resistant and recognisably test-only', () => {
