@@ -2,6 +2,12 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { BasePage } from './base.page';
 
 export class ApplicationTrackerPage extends BasePage {
+  private lastChangedApplication?: {
+    title: string;
+    company: string;
+    status: 'interview' | 'offer';
+  };
+
   constructor(page: Page) {
     super(page);
   }
@@ -16,51 +22,84 @@ export class ApplicationTrackerPage extends BasePage {
     await expect(this.byTestId('applications-workspace').or(this.page.getByText(/No applications in this view|Application status filters/i)).first()).toBeVisible();
   }
 
-  async waitForApplications(): Promise<boolean> {
-    const card = this.byTestId('application-card').or(this.page.getByText(/No applications in this view|Applied|Interview|Offer/i).first());
-    const visible = await card.first().isVisible().catch(() => false);
-    if (visible) {
-      const focusCard = await this.visibleLocator(this.applicationCards(), 1);
-      if (focusCard) await this.spotlight(focusCard);
-      await this.pauseBeforeFeature();
-      await this.clearSpotlight();
-    }
-    return visible;
+  async waitForApplications(): Promise<void> {
+    const cards = this.applicationCards();
+    await expect(cards.first(), 'Application fixture did not render any application card.')
+      .toBeVisible({ timeout: 20_000 });
+    const focusCard = await this.requireVisibleLocator(
+      cards,
+      'Application fixture rendered no visible application card.',
+      1
+    );
+    await this.spotlight(focusCard);
+    await this.pauseBeforeFeature();
+    await this.clearSpotlight();
   }
 
-  async changeFirstApplicationStatus(status: 'Applied' | 'Interview' | 'Offer'): Promise<boolean> {
-    return status === 'Offer'
+  async changeFirstApplicationStatus(status: 'Applied' | 'Interview' | 'Offer'): Promise<void> {
+    await (status === 'Offer'
       ? this.moveInterviewApplicationToOffer()
-      : this.moveApplicationToInterview();
+      : this.moveApplicationToInterview());
   }
 
-  async moveApplicationToInterview(): Promise<boolean> {
-    return this.updateApplicationStatus(['documents-generated', 'applied'], /Interview/i, 'interview');
+  async moveApplicationToInterview(): Promise<void> {
+    await this.updateApplicationStatus(['documents-generated', 'applied'], /Interview/i, 'interview');
   }
 
-  async moveInterviewApplicationToOffer(): Promise<boolean> {
-    return this.updateApplicationStatus(['interview'], /Offer/i, 'offer');
+  async moveInterviewApplicationToOffer(): Promise<void> {
+    await this.updateApplicationStatus(['interview'], /Offer/i, 'offer');
   }
 
-  async focusApplicationWithStatus(status: RegExp): Promise<boolean> {
+  async focusApplicationWithStatus(status: RegExp): Promise<void> {
     const knownStatus = this.statusSlug(status);
     const card = knownStatus
       ? await this.cardWithCurrentStatus([knownStatus])
       : await this.cardWithStatus(status);
-    if (!(await card.isVisible().catch(() => false))) {
-      return false;
-    }
+    await expect(card, `No visible application matched ${status}.`)
+      .toBeVisible({ timeout: 20_000 });
     await this.spotlight(card);
     await this.pauseAfterFeature();
     await this.clearSpotlight();
-    return true;
   }
 
-  private async updateApplicationStatus(currentStatuses: string[], actionName: RegExp, completedStatus: string): Promise<boolean> {
-    const card = await this.cardWithCurrentStatus(currentStatuses);
-    if (!(await card.isVisible().catch(() => false))) {
-      return false;
+  async expectLastChangedStatusAfterRefresh(
+    expectedStatus: 'interview' | 'offer'
+  ): Promise<void> {
+    const changed = this.lastChangedApplication;
+    if (!changed || changed.status !== expectedStatus) {
+      throw new Error(`No application was changed to ${expectedStatus} in this scenario.`);
     }
+
+    const refresh = this.page.getByRole('button', { name: /^Refresh$/i });
+    await expect(refresh, 'Application refresh control is missing.').toBeVisible();
+    const refreshedApplications = this.page.waitForResponse(
+      response => response.request().method() === 'GET'
+        && new URL(response.url()).pathname.includes('/applications/user/'),
+      { timeout: 20_000 }
+    );
+    await this.clickFramed(refresh);
+    const response = await refreshedApplications;
+    if (!response.ok()) {
+      throw new Error(`Application refresh failed with HTTP ${response.status()}.`);
+    }
+
+    const persisted = this.applicationCardFor(changed.title, changed.company);
+    await expect(
+      persisted.locator(`.status-${expectedStatus}`).first(),
+      `Application status ${expectedStatus} did not persist after refresh.`
+    ).toBeVisible({ timeout: 20_000 });
+  }
+
+  private async updateApplicationStatus(
+    currentStatuses: string[],
+    actionName: RegExp,
+    completedStatus: 'interview' | 'offer'
+  ): Promise<void> {
+    const card = await this.cardWithCurrentStatus(currentStatuses);
+    await expect(
+      card,
+      `No visible application had an allowed starting status: ${currentStatuses.join(', ')}.`
+    ).toBeVisible({ timeout: 20_000 });
 
     await this.spotlight(card);
     await this.pauseBeforeFeature();
@@ -73,10 +112,16 @@ export class ApplicationTrackerPage extends BasePage {
     }
 
     const action = card.getByRole('button', { name: actionName }).first();
-    if (!(await action.isVisible().catch(() => false))) {
+    if (await action.count() === 0) {
       await this.clearSpotlight();
-      return false;
+      throw new Error(
+        `Application action ${actionName} is missing for ${title} at ${company}.`
+      );
     }
+    await expect(
+      action,
+      `Application action ${actionName} is missing for ${title} at ${company}.`
+    ).toBeVisible();
 
     await this.clickFramed(action);
     const updatedCard = this.applicationCardFor(title, company);
@@ -84,18 +129,21 @@ export class ApplicationTrackerPage extends BasePage {
     await this.spotlight(updatedCard);
     await this.pauseAfterFeature();
     await this.clearSpotlight();
-    return true;
+    this.lastChangedApplication = {
+      title,
+      company,
+      status: completedStatus
+    };
   }
 
   private async cardWithStatus(status: RegExp) {
     const cards = this.applicationCards();
     const matching = cards.filter({ hasText: status });
-    const visibleMatching = await this.visibleLocator(matching, 1);
-    if (visibleMatching) {
-      return visibleMatching;
-    }
-
-    return await this.visibleLocator(cards, 1) ?? cards.first();
+    return this.requireVisibleLocator(
+      matching,
+      `No visible application matched status ${status}.`,
+      1
+    );
   }
 
   private async cardWithCurrentStatus(statuses: string[]) {
@@ -108,7 +156,9 @@ export class ApplicationTrackerPage extends BasePage {
       }
     }
 
-    return await this.visibleLocator(cards, 1) ?? cards.first();
+    throw new Error(
+      `No visible application matched an allowed current status: ${statuses.join(', ')}.`
+    );
   }
 
   private applicationCards() {
@@ -144,5 +194,17 @@ export class ApplicationTrackerPage extends BasePage {
     }
     if (visible.length === 0) return undefined;
     return visible[Math.min(preferredIndex, visible.length - 1)];
+  }
+
+  private async requireVisibleLocator(
+    locator: Locator,
+    message: string,
+    preferredIndex = 0
+  ): Promise<Locator> {
+    const visible = await this.visibleLocator(locator, preferredIndex);
+    if (!visible) {
+      throw new Error(message);
+    }
+    return visible;
   }
 }

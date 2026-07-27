@@ -130,8 +130,8 @@ export function requireLifecycleConfig(
   if (environment.profile === 'demo' && state !== 'DEMO_READY') {
     throw new Error('Demo lifecycle automation may request only the DEMO_READY named state.');
   }
-  if (environment.profile !== 'demo' && state === 'DEMO_READY') {
-    throw new Error('DEMO_READY is restricted to the demo profile.');
+  if (!['demo', 'e2e'].includes(environment.profile) && state === 'DEMO_READY') {
+    throw new Error('DEMO_READY is restricted to the demo and e2e profiles.');
   }
   return {
     baseUrl: validateBaseUrl(environment.systemDataUrl),

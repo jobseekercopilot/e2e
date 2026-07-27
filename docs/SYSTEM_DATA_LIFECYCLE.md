@@ -29,9 +29,9 @@ DEMO_READY
 ```
 
 `PROVIDER_FAILURE` is accepted only by the provider-failure profile.
-`DEMO_READY` is accepted only by the demo profile, and other states are not
-accepted for demo lifecycle automation. The `@framework` smoke is deliberately
-stateless and does not contact system-data.
+`DEMO_READY` is accepted only by the demo and full E2E profiles, and other
+states are not accepted for demo lifecycle automation. The `@framework` smoke
+is deliberately stateless and does not contact system-data.
 
 ## Runtime contract
 

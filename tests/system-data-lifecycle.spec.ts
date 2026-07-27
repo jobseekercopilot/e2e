@@ -47,10 +47,10 @@ async function localServer(
   const server = http.createServer(handler);
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject);
-    server.listen(9103, '127.0.0.1', resolve);
+    server.listen(8103, '127.0.0.1', resolve);
   });
   return {
-    baseUrl: 'http://127.0.0.1:9103',
+    baseUrl: 'http://127.0.0.1:8103',
     close: () => new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
   };
 }
@@ -132,8 +132,10 @@ test('state tags and profile selection fail closed', () => {
     .toThrow('restricted to the provider-failure profile');
   expect(() => requireLifecycleConfig({ ...base, profile: 'demo' }, 'EMPTY', 'run'))
     .toThrow('only the DEMO_READY');
-  expect(() => requireLifecycleConfig({ ...base, profile: 'e2e' }, 'DEMO_READY', 'run'))
-    .toThrow('restricted to the demo profile');
+  expect(requireLifecycleConfig({ ...base, profile: 'e2e' }, 'DEMO_READY', 'run').baseUrl)
+    .toBe('http://localhost:9103');
+  expect(() => requireLifecycleConfig({ ...base, profile: 'security' }, 'DEMO_READY', 'run'))
+    .toThrow('restricted to the demo and e2e profiles');
 });
 
 test('lifecycle configuration rejects missing secrets and unsafe targets without echoing them', () => {
