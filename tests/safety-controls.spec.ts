@@ -6,7 +6,16 @@ import { cleanupSyntheticUser, type FetchLike } from '../support/cleanup';
 import { pruneArtifacts, safeArtifactStem, writeFailureReport } from '../support/artifacts';
 import { createRunId, createSyntheticEmail, isSyntheticEmail } from '../support/synthetic-data';
 import { assertRelativeArtifactPath, readProfile, validateSessionPolicy } from '../support/config-policy';
+import alexTaylor from '../fixtures/users/alex-taylor.json';
 const { findProfileTagViolations } = require('../scripts/profile-tag-policy');
+
+test('shared synthetic demo password satisfies the current registration policy', () => {
+  expect(alexTaylor.password).toHaveLength(22);
+  expect(alexTaylor.password).toMatch(/[A-Z]/);
+  expect(alexTaylor.password).toMatch(/[a-z]/);
+  expect(alexTaylor.password).toMatch(/[0-9]/);
+  expect(alexTaylor.password).toMatch(/[^A-Za-z0-9]/);
+});
 
 test('synthetic identities are collision-resistant and recognisably test-only', () => {
   const runId = createRunId('worker-3');
