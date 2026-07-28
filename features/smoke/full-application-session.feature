@@ -1,5 +1,5 @@
 @smoke @stack
-Feature: Minimum user-management beta stack
+Feature: Full application session and profile smoke
 
   @state:REGISTRATION_CLEAN
   Scenario: A new claimant registers with a deterministic location

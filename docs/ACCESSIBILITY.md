@@ -1,13 +1,13 @@
 # Accessibility and resilient UX evidence
 
 The `@accessibility` profile is the authoritative automated browser evidence
-for the selected user-management beta path. It extends the existing
-Playwright/Cucumber framework and runs only against the guarded local Compose
-stack with system-data named states.
+for the application. It extends the existing Playwright/Cucumber framework and
+runs against the guarded Infrastructure `full-fixture` stack with system-data
+named states.
 
 ## Automated scope
 
-`npm run stack:accessibility` proves:
+The accessibility profile proves:
 
 - axe-core has no detected violations at registration steps 1, 2 and 3, the
   authenticated profile, and the profile location-failure state;
@@ -22,10 +22,9 @@ stack with system-data named states.
 - named-state preparation/reset, no saved authentication state, failure traces,
   screenshots and bounded metadata follow the framework-wide safety controls.
 
-`npm run stack:verify` includes this profile after the existing browser smoke
-journeys and before the controlled postcode dependency-failure proof. The
-client source is pinned to the reviewed CLIENT-13 merge in
-`config/beta-stack-sources.json`.
+The Infrastructure lock pins the client and all supporting services to reviewed
+merged revisions. Full-stack validation runs this profile alongside the normal
+browser smoke journeys.
 
 CI runs `npm run test:accessibility:ci`, a no-browser scenario that proves the
 profile disables demo mode and reusable authentication state. It also dry-runs
