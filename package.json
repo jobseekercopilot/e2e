@@ -32,20 +32,7 @@
     "audit:policy": "node scripts/dependency-policy.js",
     "verify:tracked-files": "git ls-files --cached --others --exclude-standard -z | node scripts/verify-tracked-files.js",
     "verify:profiles": "node scripts/verify-profile-tags.js",
-    "verify": "npm run verify:runtime && npm run test:dependency-policy && npm run audit:policy && npm run verify:tracked-files && npm run verify:profiles && npm run typecheck && npm run test:definitions && npm run test:smoke:ci && npm run test:accessibility:ci && npm run test:support",
-    "stack:prepare": "node scripts/beta-stack.js prepare",
-    "stack:validate": "node scripts/beta-stack.js validate",
-    "stack:config": "node scripts/beta-stack.js config",
-    "stack:build": "node scripts/beta-stack.js build",
-    "stack:scan-images": "node scripts/beta-stack.js scan-images",
-    "stack:up": "node scripts/beta-stack.js up",
-    "stack:reset": "node scripts/beta-stack.js reset",
-    "stack:smoke": "node scripts/beta-stack.js smoke",
-    "stack:accessibility": "node scripts/beta-stack.js accessibility",
-    "stack:dependency-failure": "node scripts/beta-stack.js dependency-failure",
-    "stack:verify": "node scripts/beta-stack.js verify",
-    "stack:logs": "node scripts/beta-stack.js logs",
-    "stack:down": "node scripts/beta-stack.js down"
+    "verify": "npm run verify:runtime && npm run test:dependency-policy && npm run audit:policy && npm run verify:tracked-files && npm run verify:profiles && npm run typecheck && npm run test:definitions && npm run test:smoke:ci && npm run test:accessibility:ci && npm run test:support"
   },
   "dependencies": {
     "@cucumber/cucumber": "13.2.0",

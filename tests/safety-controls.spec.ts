@@ -127,7 +127,7 @@ test('profile policy accepts one primary tag and rejects missing or overlapping 
   expect(violations.join('\n')).toContain('belongs to @demo');
 });
 
-test('job search opens the active beta root instead of the retired dashboard route', async () => {
+test('job search opens the canonical application root', async () => {
   const pageObject = await fs.readFile(
     path.resolve(__dirname, '../pages/JobSearchPage.ts'),
     'utf8'

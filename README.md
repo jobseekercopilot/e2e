@@ -131,30 +131,16 @@ profile. A demo operator must explicitly set both `DEMO_MODE=true` and
 `SAVE_DEMO_SESSION=true` to write ignored state, or `USE_SAVED_SESSION=true` to
 read it. Passing arbitrary scenarios no longer save browser state.
 
-## Minimum beta stack
+## Full-product fixture stack
 
-The approved nine-component stack, exact source revisions, generated local
-credentials, clean build, readiness, isolated schema lifecycle, browser smoke,
-dependency-failure proof, unprivileged PostgreSQL runtime, blocking image
-scans, ports and troubleshooting are documented in
-[docs/BETA_STACK.md](docs/BETA_STACK.md).
+Infrastructure owns the complete repository catalogue, locked revisions and
+`full-fixture` Compose profile. E2E runs against that normal application stack;
+this repository does not maintain a competing reduced Compose topology.
 
-## Historical demo fixture preflight
-
-The historical broad demo stack configuration remains in the parent workspace,
-not this repository. Its Compose model parses but currently spans 26 services,
-including unapproved legacy capabilities and stale user-management settings.
-Do not use it as beta evidence. E2E-03 owns a minimum approved stack; until that
-lands, run demo fixture preflight only from the controlled original workspace.
-
-Promo and deterministic E2E runs require gateway fixture mode before Playwright starts:
-
-```bash
-# From the controlled parent workspace only; not a clean-clone command.
-docker compose -f docker-compose.yml -f docker-compose.e2e.yml config
-```
-
-The verification checks `GET /internal/provider-mode` for all external gateways, validates system-data fixture endpoints, and smokes the normal gateway APIs. Do not record demo clips against live Adzuna, JSearch, Reed, postcodes.io, OpenAI or Stripe.
+Deterministic E2E and recording runs require fixture mode before Playwright
+starts. The Infrastructure health and provider-mode checks must pass first.
+Do not record or test against live Adzuna, JSearch, Reed, postcodes.io, OpenAI
+or Stripe unless the relevant run explicitly requires and protects live access.
 
 ## Record Final Chapters
 
