@@ -50,6 +50,8 @@ export const e2eConfig = {
   cleanupToken: process.env.E2E_CLEANUP_TOKEN,
   systemDataUrl: process.env.SYSTEM_DATA_SERVICE_URL,
   systemDataKey: process.env.SYSTEM_DATA_INTERNAL_CALLER_KEY,
+  authenticationFixtureUrl: process.env.AUTHENTICATION_FIXTURE_URL,
+  environmentDataToken: process.env.ENVIRONMENT_DATA_TOKEN,
   systemDataTimeoutMs: readNumber('SYSTEM_DATA_TIMEOUT_MS', 10_000),
   demoDownloadDir: process.env.DEMO_DOWNLOAD_DIR ?? 'demo-recordings/final-polish/downloads',
   allowAiGeneration: readBoolean('ALLOW_AI_GENERATION', false),
