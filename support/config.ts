@@ -24,6 +24,16 @@ function readNumber(name: string, defaultValue: number): number {
   return Number.isFinite(parsed) ? parsed : defaultValue;
 }
 
+function readAccountEmailMode(value: string | undefined): 'fixture' | 'local-ses' {
+  const mode = value ?? 'fixture';
+  if (mode !== 'fixture' && mode !== 'local-ses') {
+    throw new Error(
+      'ACCOUNT_EMAIL_E2E_MODE must be fixture or local-ses; hosted SES is forbidden in E2E.'
+    );
+  }
+  return mode;
+}
+
 const profile = readProfile(process.env.E2E_PROFILE);
 const demoMode = readBoolean('DEMO_MODE', profile === 'demo');
 const useSavedSession = readBoolean('USE_SAVED_SESSION', false);
@@ -51,6 +61,8 @@ export const e2eConfig = {
   systemDataUrl: process.env.SYSTEM_DATA_SERVICE_URL,
   systemDataKey: process.env.SYSTEM_DATA_INTERNAL_CALLER_KEY,
   authenticationFixtureUrl: process.env.AUTHENTICATION_FIXTURE_URL,
+  accountEmailMode: readAccountEmailMode(process.env.ACCOUNT_EMAIL_E2E_MODE),
+  localStackSesUrl: process.env.LOCALSTACK_SES_URL,
   environmentDataToken: process.env.ENVIRONMENT_DATA_TOKEN,
   systemDataTimeoutMs: readNumber('SYSTEM_DATA_TIMEOUT_MS', 10_000),
   demoDownloadDir: process.env.DEMO_DOWNLOAD_DIR ?? 'demo-recordings/final-polish/downloads',

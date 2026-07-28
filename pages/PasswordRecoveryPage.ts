@@ -68,15 +68,12 @@ export async function latestFixtureResetLink(
   environmentDataToken: string | undefined,
   recipient: string
 ): Promise<string> {
-  const base = validateFixtureBaseUrl(fixtureBaseUrl);
-  if (!environmentDataToken || environmentDataToken.length < 32 || /\s/.test(environmentDataToken)) {
-    throw new Error('ENVIRONMENT_DATA_TOKEN must be a non-whitespace runtime value of at least 32 characters.');
-  }
+  const { base, token } = validateFixtureAccess(fixtureBaseUrl, environmentDataToken);
   const url = new URL('/internal/system-data/account-email/latest', base);
   url.searchParams.set('recipient', recipient);
   url.searchParams.set('purpose', 'PASSWORD_RESET');
   const response = await fetch(url, {
-    headers: { 'X-Environment-Data-Token': environmentDataToken }
+    headers: { 'X-Environment-Data-Token': token }
   });
   if (!response.ok) throw new Error(`Fixture account-email lookup failed with HTTP ${response.status}.`);
   const body = await response.json() as { actionUrl?: unknown };
@@ -84,6 +81,54 @@ export async function latestFixtureResetLink(
     throw new Error('Fixture account-email response did not contain an action URL.');
   }
   return body.actionUrl;
+}
+
+export async function fixtureAccountEmailExists(
+  fixtureBaseUrl: string | undefined,
+  environmentDataToken: string | undefined,
+  recipient: string,
+  purpose: 'PASSWORD_RESET' | 'PASSWORD_CHANGED'
+): Promise<boolean> {
+  const { base, token } = validateFixtureAccess(fixtureBaseUrl, environmentDataToken);
+  const url = new URL('/internal/system-data/account-email/latest', base);
+  url.searchParams.set('recipient', recipient);
+  url.searchParams.set('purpose', purpose);
+  const response = await fetch(url, {
+    headers: { 'X-Environment-Data-Token': token }
+  });
+  if (response.status === 404) return false;
+  if (!response.ok) {
+    throw new Error(`Fixture account-email lookup failed with HTTP ${response.status}.`);
+  }
+  return true;
+}
+
+export async function clearFixtureAccountEmails(
+  fixtureBaseUrl: string | undefined,
+  environmentDataToken: string | undefined
+): Promise<void> {
+  const { base, token } = validateFixtureAccess(fixtureBaseUrl, environmentDataToken);
+  const response = await fetch(
+    new URL('/internal/system-data/account-email', base),
+    {
+      method: 'DELETE',
+      headers: { 'X-Environment-Data-Token': token }
+    }
+  );
+  if (response.status !== 204) {
+    throw new Error(`Fixture account-email cleanup failed with HTTP ${response.status}.`);
+  }
+}
+
+function validateFixtureAccess(
+  fixtureBaseUrl: string | undefined,
+  environmentDataToken: string | undefined
+): { base: string; token: string } {
+  const base = validateFixtureBaseUrl(fixtureBaseUrl);
+  if (!environmentDataToken || environmentDataToken.length < 32 || /\s/.test(environmentDataToken)) {
+    throw new Error('ENVIRONMENT_DATA_TOKEN must be a non-whitespace runtime value of at least 32 characters.');
+  }
+  return { base, token: environmentDataToken };
 }
 
 function validateFixtureBaseUrl(value: string | undefined): string {

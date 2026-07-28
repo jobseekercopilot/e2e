@@ -14,6 +14,8 @@
     "test:smoke:ci": "E2E_PROFILE=smoke DEMO_MODE=false USE_SAVED_SESSION=false SAVE_DEMO_SESSION=false HEADLESS=true RECORD_VIDEO=false cucumber-js --profile smoke --tags 'not @stack'",
     "test:smoke:stack": "E2E_PROFILE=smoke DEMO_MODE=false USE_SAVED_SESSION=false SAVE_DEMO_SESSION=false HEADLESS=true RECORD_VIDEO=false cucumber-js --profile smoke --tags '@stack'",
     "test:e2e": "E2E_PROFILE=e2e DEMO_MODE=false USE_SAVED_SESSION=false SAVE_DEMO_SESSION=false HEADLESS=true RECORD_VIDEO=false cucumber-js --profile e2e",
+    "test:e2e:password-reset:fixture": "ACCOUNT_EMAIL_E2E_MODE=fixture E2E_PROFILE=e2e DEMO_MODE=false USE_SAVED_SESSION=false SAVE_DEMO_SESSION=false HEADLESS=true RECORD_VIDEO=false cucumber-js --profile e2e --tags '@account-email'",
+    "test:e2e:password-reset:local-ses": "ACCOUNT_EMAIL_E2E_MODE=local-ses E2E_PROFILE=e2e DEMO_MODE=false USE_SAVED_SESSION=false SAVE_DEMO_SESSION=false HEADLESS=true RECORD_VIDEO=false cucumber-js --profile e2e --tags '@account-email'",
     "test:security": "E2E_PROFILE=security DEMO_MODE=false USE_SAVED_SESSION=false SAVE_DEMO_SESSION=false HEADLESS=true RECORD_VIDEO=false cucumber-js --profile security",
     "test:provider-failure": "E2E_PROFILE=provider-failure DEMO_MODE=false USE_SAVED_SESSION=false SAVE_DEMO_SESSION=false HEADLESS=true RECORD_VIDEO=false cucumber-js --profile providerFailure",
     "test:accessibility": "E2E_PROFILE=accessibility DEMO_MODE=false USE_SAVED_SESSION=false SAVE_DEMO_SESSION=false HEADLESS=true RECORD_VIDEO=false cucumber-js --profile accessibility",

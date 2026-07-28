@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createContext, createPage, launchBrowser } from './browser';
 import { e2eConfig } from './config';
+import { clearAccountEmailCapture } from './account-email-capture';
 import { demoCursor } from './demo-cursor';
 import { pruneArtifacts, safeArtifactStem, writeFailureReport } from './artifacts';
 import { cleanupSyntheticUser } from './cleanup';
@@ -55,6 +56,10 @@ After(async function (this: JobSeekerWorld, scenario) {
   const attempt = async (action: () => Promise<void>): Promise<void> => {
     try { await action(); } catch (error) { teardownError ??= error; }
   };
+
+  if (scenario.pickle.tags.some(tag => tag.name === '@account-email')) {
+    await attempt(async () => { await clearAccountEmailCapture(e2eConfig); });
+  }
 
   if (failed && this.page && e2eConfig.profile !== 'demo') {
     await attempt(async () => {

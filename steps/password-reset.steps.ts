@@ -1,7 +1,16 @@
-import { Then, When } from '@cucumber/cucumber';
+import { Given, Then, When } from '@cucumber/cucumber';
 import { expect, type BrowserContext, type Page } from '@playwright/test';
 import { latestFixtureResetLink } from '../pages/PasswordRecoveryPage';
 import { RegisterPage } from '../pages/RegisterPage';
+import {
+  accountEmailExists,
+  clearAccountEmailCapture
+} from '../support/account-email-capture';
+import {
+  extractResetLink,
+  LocalStackSesCapture,
+  type LocalStackSesMessage
+} from '../support/localstack-ses';
 import { createContext } from '../support/browser';
 import type { JobSeekerWorld } from '../support/world';
 
@@ -11,8 +20,10 @@ const GENERIC_MESSAGE =
 interface PasswordResetState {
   knownResponse?: string;
   unknownResponse?: string;
+  unknownEmail?: string;
   actionUrl?: string;
   token?: string;
+  resetMessage?: LocalStackSesMessage;
   replacementPassword?: string;
   previousContexts?: BrowserContext[];
   previousPages?: Page[];
@@ -25,6 +36,10 @@ function resetState(world: JobSeekerWorld): PasswordResetState {
   state.set(world, current);
   return current;
 }
+
+Given('account email capture is empty', async function (this: JobSeekerWorld) {
+  await clearAccountEmailCapture(this.config);
+});
 
 When('the claimant signs in on two browser sessions', async function (this: JobSeekerWorld) {
   if (!this.browser || !this.demoUser) throw new Error('Account fixture is unavailable.');
@@ -57,9 +72,10 @@ When('the claimant requests a password reset for the registered email', async fu
 
 When('the claimant requests a password reset for an unknown email', async function (this: JobSeekerWorld) {
   if (!this.passwordRecoveryPage) throw new Error('Password recovery page is unavailable.');
-  resetState(this).unknownResponse = await this.passwordRecoveryPage.requestReset(
-    `unknown-${this.runId}@example.test`
-  );
+  const current = resetState(this);
+  current.unknownEmail = `unknown-${this.runId}@example.test`;
+  current.unknownResponse = await this.passwordRecoveryPage.requestReset(
+    current.unknownEmail);
 });
 
 Then('the browser shows the approved generic password-reset response', async function (this: JobSeekerWorld) {
@@ -71,15 +87,54 @@ Then('the browser shows the approved generic password-reset response', async fun
   }
 });
 
-When('the claimant opens the fixture-delivered reset link', async function (this: JobSeekerWorld) {
+Then('no account email was sent for the unknown email', async function (this: JobSeekerWorld) {
+  const current = resetState(this);
+  if (!this.demoUser || !current.unknownEmail) {
+    throw new Error('Account-email recipients are unavailable.');
+  }
+  expect(await accountEmailExists(
+    this.config, current.unknownEmail, 'PASSWORD_RESET')).toBe(false);
+  expect(await accountEmailExists(
+    this.config, this.demoUser.email, 'PASSWORD_RESET')).toBe(true);
+});
+
+When('the claimant opens the account-email-delivered reset link', async function (this: JobSeekerWorld) {
   if (!this.demoUser || !this.passwordRecoveryPage) throw new Error('Account fixture is unavailable.');
   const current = resetState(this);
-  current.actionUrl = await latestFixtureResetLink(
-    this.config.authenticationFixtureUrl,
-    this.config.environmentDataToken,
-    this.demoUser.email
-  );
+  if (this.config.accountEmailMode === 'local-ses') {
+    const capture = new LocalStackSesCapture(this.config.localStackSesUrl);
+    current.resetMessage = await capture.waitFor(
+      this.demoUser.email,
+      'Reset your Job Seeker Copilot password'
+    );
+    validateResetEmail(
+      current.resetMessage,
+      this.demoUser.email,
+      this.config.baseUrl
+    );
+    current.actionUrl = extractResetLink(current.resetMessage);
+  } else {
+    current.actionUrl = await latestFixtureResetLink(
+      this.config.authenticationFixtureUrl,
+      this.config.environmentDataToken,
+      this.demoUser.email
+    );
+  }
   current.token = await this.passwordRecoveryPage.openResetLink(current.actionUrl);
+});
+
+Then('the password-changed account email is delivered', async function (this: JobSeekerWorld) {
+  if (!this.demoUser) throw new Error('Account fixture is unavailable.');
+  if (this.config.accountEmailMode === 'local-ses') {
+    const changed = await new LocalStackSesCapture(this.config.localStackSesUrl).waitFor(
+      this.demoUser.email,
+      'Your Job Seeker Copilot password was changed'
+    );
+    validateChangedEmail(changed, this.demoUser.email);
+    return;
+  }
+  expect(await accountEmailExists(
+    this.config, this.demoUser.email, 'PASSWORD_CHANGED')).toBe(true);
 });
 
 Then('the reset token is removed from the browser URL and is not stored', async function (this: JobSeekerWorld) {
@@ -139,3 +194,45 @@ Then('the password reset succeeds and the replacement password can sign in', asy
     await context.close();
   }
 });
+
+function validateResetEmail(
+  message: LocalStackSesMessage,
+  recipient: string,
+  applicationBaseUrl: string
+): void {
+  expect(message.Source).toBe('accounts@jobseekercopilot.com');
+  expect(message.Destination.ToAddresses).toEqual([recipient]);
+  expect(message.Subject).toBe('Reset your Job Seeker Copilot password');
+  expect(message.Body.text_part).toContain('This link expires on');
+  expect(message.Body.html_part).toContain('This link expires on');
+  expect(message.Body.text_part).toContain('https://jobseekercopilot.com/contact');
+  expect(message.Body.html_part).toContain('https://jobseekercopilot.com/contact');
+  const action = new URL(extractResetLink(message));
+  expect(action.origin).toBe(new URL(applicationBaseUrl).origin);
+  expect(action.pathname).toBe('/reset-password');
+  for (const body of [message.Body.text_part, message.Body.html_part]) {
+    expect(body).not.toContain(recipient);
+    expect(body.toLowerCase()).not.toContain('waitlist');
+    expect(body.toLowerCase()).not.toContain('contact form');
+    expect(body.toLowerCase()).not.toContain('thanks for contacting');
+  }
+}
+
+function validateChangedEmail(
+  message: LocalStackSesMessage,
+  recipient: string
+): void {
+  expect(message.Source).toBe('accounts@jobseekercopilot.com');
+  expect(message.Destination.ToAddresses).toEqual([recipient]);
+  expect(message.Subject).toBe('Your Job Seeker Copilot password was changed');
+  expect(message.Body.text_part).toContain('Every existing session has been signed out.');
+  expect(message.Body.html_part).toContain('Every existing session has been signed out.');
+  expect(message.Body.text_part).toContain('https://jobseekercopilot.com/contact');
+  expect(message.Body.html_part).toContain('https://jobseekercopilot.com/contact');
+  for (const body of [message.Body.text_part, message.Body.html_part]) {
+    expect(body).not.toContain('/reset-password');
+    expect(body).not.toContain(recipient);
+    expect(body.toLowerCase()).not.toContain('waitlist');
+    expect(body.toLowerCase()).not.toContain('contact form');
+  }
+}
