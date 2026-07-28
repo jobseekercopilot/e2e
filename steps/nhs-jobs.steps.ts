@@ -181,9 +181,9 @@ Then(
 
     await expect(card.getByText(ATTRIBUTION, { exact: true })).toBeVisible();
     await expect(card.getByText(DISCLAIMER, { exact: true })).toBeVisible();
-    await expect(card.getByRole('link', { name: /official NHS Jobs listing/i }))
+    await expect(card.getByRole('link', { name: /view official listing/i }))
       .toHaveAttribute('href', LISTING_URL);
-    await expect(card.getByRole('link', { name: /attribution source/i }))
+    await expect(card.getByRole('link', { name: /about the vacancy source/i }))
       .toHaveAttribute('href', ATTRIBUTION_SOURCE_URL);
     await expect(card.getByRole('link', { name: /Open Government Licence/i }))
       .toHaveAttribute('href', LICENCE_URL);
@@ -195,9 +195,7 @@ When(
   async function (this: JobSeekerWorld) {
     const page = requirePage(this);
     await this.navigationPage?.goToDashboard();
-    const panel = page.getByRole('heading', { name: 'Your job search progress' })
-      .locator('..')
-      .locator('..');
+    const panel = page.locator('[data-demo-focus-id="reporting-panel"]');
     await expect(panel).toBeVisible();
     const responsePromise = page.waitForResponse(response =>
       response.request().method() === 'GET'
