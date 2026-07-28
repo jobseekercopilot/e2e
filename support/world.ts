@@ -10,6 +10,7 @@ import { JobSeekerProfilePage } from '../pages/job-seeker-profile.page';
 import { JobSearchPage, type JobSearchFixture } from '../pages/JobSearchPage';
 import { NavigationPage } from '../pages/NavigationPage';
 import { RegisterPage } from '../pages/RegisterPage';
+import { PasswordRecoveryPage } from '../pages/PasswordRecoveryPage';
 import { e2eConfig } from './config';
 import { createRunId } from './synthetic-data';
 import type { NamedState, NamedStateDefinition, SystemDataClient } from './system-data';
@@ -71,6 +72,7 @@ export class JobSeekerWorld extends World {
   documentsPage?: DocumentsPage;
   applicationTrackerPage?: ApplicationTrackerPage;
   aiCreditPage?: AiCreditPage;
+  passwordRecoveryPage?: PasswordRecoveryPage;
 
   constructor(options: IWorldOptions) {
     super(options);
@@ -88,6 +90,7 @@ export class JobSeekerWorld extends World {
     this.documentsPage = new DocumentsPage(page);
     this.applicationTrackerPage = new ApplicationTrackerPage(page);
     this.aiCreditPage = new AiCreditPage(page);
+    this.passwordRecoveryPage = new PasswordRecoveryPage(page, this.config.baseUrl);
   }
 
   registerSyntheticUser(email: string): void {
