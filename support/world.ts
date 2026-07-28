@@ -1,5 +1,5 @@
 import { setWorldConstructor, World, type IWorldOptions } from '@cucumber/cucumber';
-import type { Browser, BrowserContext, Page } from '@playwright/test';
+import type { Browser, BrowserContext, Locator, Page } from '@playwright/test';
 import { AiCreditPage } from '../pages/AiCreditPage';
 import { ApplicationTrackerPage } from '../pages/ApplicationTrackerPage';
 import { DashboardPage } from '../pages/DashboardPage';
@@ -51,6 +51,22 @@ export class JobSeekerWorld extends World {
   documentGenerationAttempted?: 'applicationDocuments';
   documentGenerationSuccessShown = false;
   demoDownloads: string[] = [];
+  nhsApplication?: {
+    id?: string;
+    jobId?: string;
+    canonicalJobId?: string;
+    provider?: string;
+    externalJobId?: string;
+    listingUrl?: string;
+    applyUrl?: string;
+    attributionLabel?: string;
+    attributionSourceUrl?: string;
+    licenceUrl?: string;
+    disclaimer?: string;
+    jobTitle?: string;
+  };
+  nhsApplicationCard?: Locator;
+  nhsReportingPanel?: Locator;
   readonly runId = createRunId();
   readonly syntheticUsers = new Set<string>();
   registrationRequestCount = 0;
