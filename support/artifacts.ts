@@ -21,6 +21,10 @@ export async function pruneArtifacts(directory: string, maximum: number): Promis
   await Promise.all(files.slice(maximum).map(file => fs.unlink(file.path)));
 }
 
+export async function makeArtifactPrivate(artifactPath: string): Promise<void> {
+  await fs.chmod(artifactPath, 0o600);
+}
+
 export async function writeFailureReport(directory: string, stem: string, profile: string): Promise<string> {
   const reportPath = path.join(directory, `${stem}.json`);
   await fs.writeFile(reportPath, `${JSON.stringify({ profile, failed: true }, null, 2)}\n`, { flag: 'wx', mode: 0o600 });

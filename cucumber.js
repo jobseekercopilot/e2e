@@ -28,7 +28,32 @@ module.exports = {
   smoke: { ...common, tags: '@smoke and not @demo', format: betaFormat },
   e2e: {
     ...common,
-    tags: '@e2e and not @demo and not @smoke and not @security and not @provider-failure and not @accessibility',
+    tags: '@e2e and not @demo and not @smoke and not @security and not @provider-failure and not @accessibility and not @stabilisation',
+    format: betaFormat
+  },
+  stabilisation: {
+    ...common,
+    tags: '@e2e and @stabilisation-live',
+    format: betaFormat
+  },
+  stabilisationUi: {
+    ...common,
+    tags: '@e2e and @stabilisation-ui',
+    format: betaFormat
+  },
+  stabilisationStale: {
+    ...common,
+    tags: '@e2e and @stabilisation-stale',
+    format: betaFormat
+  },
+  stabilisationProbe: {
+    ...common,
+    tags: '@e2e and @stabilisation-probe',
+    format: betaFormat
+  },
+  stabilisationCancellation: {
+    ...common,
+    tags: '@e2e and @stabilisation-cancellation',
     format: betaFormat
   },
   security: { ...common, tags: '@security and not @demo', format: betaFormat },
