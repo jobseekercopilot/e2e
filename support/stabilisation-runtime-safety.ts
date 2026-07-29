@@ -36,6 +36,44 @@ export interface ZeroCreditGenerationFirewall {
   stop(): Promise<void>;
 }
 
+export async function installGenerationStartBlocker(
+  context: BrowserContext,
+  scope: string
+): Promise<ZeroCreditGenerationFirewall> {
+  let blockedAttempts = 0;
+  const pattern = '**/api/v1/document-generation/**';
+  const handler = async (route: Route): Promise<void> => {
+    const request = route.request();
+    const pathname = new URL(request.url()).pathname;
+    if (
+      request.method() === 'POST'
+      && /^\/api\/v1\/document-generation\/.+\/operations$/.test(pathname)
+    ) {
+      blockedAttempts += 1;
+      await route.abort('blockedbyclient');
+      return;
+    }
+    await route.continue();
+  };
+
+  await context.route(pattern, handler);
+  let stopped = false;
+  return {
+    assertNoAttempts: () => {
+      if (blockedAttempts !== 0) {
+        throw new Error(
+          `The ${scope} blocked ${blockedAttempts} unexpected generation start request(s).`
+        );
+      }
+    },
+    stop: async () => {
+      if (stopped) return;
+      stopped = true;
+      await context.unroute(pattern, handler);
+    }
+  };
+}
+
 function readLiveProfile(value: string | undefined): LiveProfile | undefined {
   if (!value) return undefined;
   if (Object.prototype.hasOwnProperty.call(PROFILE_MODE, value)) {
@@ -144,36 +182,8 @@ export async function installZeroCreditGenerationFirewall(
     return undefined;
   }
 
-  let blockedAttempts = 0;
-  const pattern = '**/api/v1/document-generation/**';
-  const handler = async (route: Route): Promise<void> => {
-    const request = route.request();
-    const pathname = new URL(request.url()).pathname;
-    if (
-      request.method() === 'POST'
-      && /^\/api\/v1\/document-generation\/.+\/operations$/.test(pathname)
-    ) {
-      blockedAttempts += 1;
-      await route.abort('blockedbyclient');
-      return;
-    }
-    await route.continue();
-  };
-
-  await context.route(pattern, handler);
-  let stopped = false;
-  return {
-    assertNoAttempts: () => {
-      if (blockedAttempts !== 0) {
-        throw new Error(
-          `The zero-credit stabilisation firewall blocked ${blockedAttempts} unexpected generation start request(s).`
-        );
-      }
-    },
-    stop: async () => {
-      if (stopped) return;
-      stopped = true;
-      await context.unroute(pattern, handler);
-    }
-  };
+  return await installGenerationStartBlocker(
+    context,
+    'zero-credit stabilisation firewall'
+  );
 }

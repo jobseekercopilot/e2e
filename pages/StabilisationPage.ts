@@ -13,6 +13,7 @@ import {
   type StabilisationJobRecord
 } from '../support/stabilisation-artifacts';
 import { PUBLIC_NAMED_STATE_PASSWORD } from '../support/demo-data';
+import { installGenerationStartBlocker } from '../support/stabilisation-runtime-safety';
 
 export interface NamedStateIdentity {
   email: string;
@@ -776,6 +777,10 @@ export class StabilisationPage {
       baseURL: this.baseUrl,
       viewport: { width: 1440, height: 1000 },
     });
+    const generationStartBlocker = await installGenerationStartBlocker(
+      secondContext,
+      'stale secondary-session firewall'
+    );
     try {
       const secondPage = await secondContext.newPage();
       const secondSession = new StabilisationPage(
@@ -809,7 +814,15 @@ export class StabilisationPage {
       this.staleRevisionConflictObserved = true;
       await secondSession.artifacts.screenshot(secondPage, 'stale-profile-revision-conflict');
     } finally {
-      await secondContext.close();
+      try {
+        generationStartBlocker.assertNoAttempts();
+      } finally {
+        try {
+          await generationStartBlocker.stop();
+        } finally {
+          await secondContext.close();
+        }
+      }
     }
   }
 

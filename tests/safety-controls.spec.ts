@@ -21,6 +21,7 @@ import {
 } from '../support/stabilisation-preservation';
 import {
   enforceStabilisationScenarioSafety,
+  installGenerationStartBlocker,
   installZeroCreditGenerationFirewall
 } from '../support/stabilisation-runtime-safety';
 import {
@@ -516,6 +517,64 @@ test('zero-credit stabilisation blocks and reports every generation start', asyn
     await firewall?.stop();
     await context.close();
   }
+});
+
+test('secondary and read-only contexts independently block generation starts', async ({
+  browser
+}) => {
+  const contexts = await Promise.all([
+    browser.newContext(),
+    browser.newContext()
+  ]);
+  const scopes = [
+    'stale secondary-session firewall',
+    'restored-runtime read-only firewall'
+  ];
+  const blockers = await Promise.all(
+    contexts.map((context, index) =>
+      installGenerationStartBlocker(context, scopes[index])
+    )
+  );
+  try {
+    for (let index = 0; index < contexts.length; index += 1) {
+      const page = await contexts[index].newPage();
+      await page.setContent(`<main>${scopes[index]} probe</main>`);
+      const result = await page.evaluate(async () => {
+        try {
+          await fetch(
+            'http://127.0.0.1:3000/api/v1/document-generation/saved-jobs/probe/operations',
+            { method: 'POST' }
+          );
+          return 'unexpected-success';
+        } catch {
+          return 'blocked';
+        }
+      });
+      expect(result).toBe('blocked');
+      expect(() => blockers[index].assertNoAttempts()).toThrow(
+        `The ${scopes[index]} blocked 1 unexpected generation start request(s).`
+      );
+    }
+  } finally {
+    await Promise.all(blockers.map(blocker => blocker.stop()));
+    await Promise.all(contexts.map(context => context.close()));
+  }
+});
+
+test('every unhooked stabilisation context installs and asserts its blocker', async () => {
+  const [stalePage, restoredRunner] = await Promise.all([
+    fs.readFile(path.resolve(__dirname, '../pages/StabilisationPage.ts'), 'utf8'),
+    fs.readFile(
+      path.resolve(__dirname, '../scripts/run-restored-stabilisation-smoke.js'),
+      'utf8'
+    )
+  ]);
+  expect(stalePage).toMatch(
+    /installGenerationStartBlocker\(\s*secondContext,[\s\S]+?generationStartBlocker\.assertNoAttempts\(\)[\s\S]+?generationStartBlocker\.stop\(\)[\s\S]+?secondContext\.close\(\)/
+  );
+  expect(restoredRunner).toMatch(
+    /installGenerationStartBlocker\(\s*context,[\s\S]+?generationStartBlocker\.assertNoAttempts\(\)[\s\S]+?generationStartBlocker\.stop\(\)[\s\S]+?context\.close\(\)/
+  );
 });
 
 test('DEMO_READY preservation is narrow and ordinary scenarios still reset', () => {

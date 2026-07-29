@@ -8,6 +8,9 @@ const { StabilisationPage } = require('../pages/StabilisationPage');
 const {
   validateRestoredPersistenceSmoke
 } = require('./live-stabilisation-policy');
+const {
+  installGenerationStartBlocker
+} = require('../support/stabilisation-runtime-safety');
 
 function requireManifest(value) {
   if (
@@ -73,6 +76,10 @@ async function main() {
       baseURL: policy.baseUrl,
       viewport: { width: 1920, height: 1080 }
     });
+    const generationStartBlocker = await installGenerationStartBlocker(
+      context,
+      'restored-runtime read-only firewall'
+    );
     try {
       const page = await context.newPage();
       const restoredRuntime = new StabilisationPage(
@@ -84,7 +91,15 @@ async function main() {
       );
       await restoredRuntime.verifyRestoredRuntimePersistence(jobs);
     } finally {
-      await context.close();
+      try {
+        generationStartBlocker.assertNoAttempts();
+      } finally {
+        try {
+          await generationStartBlocker.stop();
+        } finally {
+          await context.close();
+        }
+      }
     }
   } finally {
     await browser.close();
