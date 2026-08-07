@@ -1,8 +1,9 @@
 import { Given, Then, When } from '@cucumber/cucumber';
-import { alexTaylorDemoUser } from '../support/demo-data';
+import {
+  alexTaylorDemoUser,
+  PUBLIC_NAMED_STATE_PASSWORD
+} from '../support/demo-data';
 import type { JobSeekerWorld } from '../support/world';
-
-const PUBLIC_NAMED_STATE_PASSWORD = 'PublicTestPassword123!';
 
 function namedStateUser(world: JobSeekerWorld, identityKey: string) {
   const identity = world.namedStateDefinition?.identities.find(candidate => candidate.key === identityKey);

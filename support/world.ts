@@ -11,9 +11,11 @@ import { JobSearchPage, type JobSearchFixture } from '../pages/JobSearchPage';
 import { NavigationPage } from '../pages/NavigationPage';
 import { RegisterPage } from '../pages/RegisterPage';
 import { PasswordRecoveryPage } from '../pages/PasswordRecoveryPage';
+import { StabilisationPage } from '../pages/StabilisationPage';
 import { e2eConfig } from './config';
 import { createRunId } from './synthetic-data';
 import type { NamedState, NamedStateDefinition, SystemDataClient } from './system-data';
+import type { ZeroCreditGenerationFirewall } from './stabilisation-runtime-safety';
 
 export interface QualificationFixture {
   name: string;
@@ -73,6 +75,8 @@ export class JobSeekerWorld extends World {
   applicationTrackerPage?: ApplicationTrackerPage;
   aiCreditPage?: AiCreditPage;
   passwordRecoveryPage?: PasswordRecoveryPage;
+  stabilisationPage?: StabilisationPage;
+  zeroCreditGenerationFirewall?: ZeroCreditGenerationFirewall;
 
   constructor(options: IWorldOptions) {
     super(options);
@@ -91,6 +95,13 @@ export class JobSeekerWorld extends World {
     this.applicationTrackerPage = new ApplicationTrackerPage(page);
     this.aiCreditPage = new AiCreditPage(page);
     this.passwordRecoveryPage = new PasswordRecoveryPage(page, this.config.baseUrl);
+    this.stabilisationPage = new StabilisationPage(
+      page,
+      this.config.baseUrl,
+      this.runId,
+      this.config.stabilisationArtifactDir,
+      this.config.stabilisationManifest
+    );
   }
 
   registerSyntheticUser(email: string): void {

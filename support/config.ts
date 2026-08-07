@@ -1,5 +1,7 @@
 import dotenv from 'dotenv';
 import { assertRelativeArtifactPath, readProfile, validateSessionPolicy } from './config-policy';
+import { validatePreservationConfiguration } from './stabilisation-preservation';
+import { validateConfiguredLiveStabilisation } from './stabilisation-runtime-safety';
 
 dotenv.config();
 
@@ -38,8 +40,18 @@ const profile = readProfile(process.env.E2E_PROFILE);
 const demoMode = readBoolean('DEMO_MODE', profile === 'demo');
 const useSavedSession = readBoolean('USE_SAVED_SESSION', false);
 const saveDemoSession = readBoolean('SAVE_DEMO_SESSION', false);
+const allowRealProviderE2e = readBoolean('ALLOW_REAL_PROVIDER_E2E', false);
+const allowAiGeneration = readBoolean('ALLOW_AI_GENERATION', false);
+const preserveDemoReadyAfterRun = readBoolean('PRESERVE_DEMO_READY_AFTER_RUN', false);
+const liveStabilisationProfile = validateConfiguredLiveStabilisation(process.env);
 
 validateSessionPolicy(profile, demoMode, useSavedSession, saveDemoSession);
+validatePreservationConfiguration({
+  enabled: preserveDemoReadyAfterRun,
+  profile,
+  liveProfile: process.env.LIVE_STABILISATION_PROFILE,
+  allowAiGeneration
+});
 
 export const e2eConfig = {
   profile,
@@ -66,7 +78,23 @@ export const e2eConfig = {
   environmentDataToken: process.env.ENVIRONMENT_DATA_TOKEN,
   systemDataTimeoutMs: readNumber('SYSTEM_DATA_TIMEOUT_MS', 10_000),
   demoDownloadDir: process.env.DEMO_DOWNLOAD_DIR ?? 'demo-recordings/final-polish/downloads',
-  allowAiGeneration: readBoolean('ALLOW_AI_GENERATION', false),
+  allowRealProviderE2e,
+  allowAiGeneration,
+  allowSingleGenerationProbe: readBoolean('ALLOW_SINGLE_GENERATION_PROBE', false),
+  allowCancellationE2e: readBoolean('ALLOW_CANCELLATION_E2E', false),
+  liveStabilisationProfile,
+  preserveDemoReadyAfterRun,
+  stabilisationManifest: assertRelativeArtifactPath(
+    'STABILISATION_MANIFEST',
+    process.env.STABILISATION_MANIFEST
+      ?? 'test-results/stabilisation/preserved-live-manifest.json',
+    'test-results/stabilisation'
+  ),
+  stabilisationArtifactDir: assertRelativeArtifactPath(
+    'STABILISATION_ARTIFACT_DIR',
+    process.env.STABILISATION_ARTIFACT_DIR ?? 'test-results/stabilisation',
+    'test-results'
+  ),
   typingDelayMs: readNumber('TYPING_DELAY_MS', 65),
   demoBufferMs: readNumber('DEMO_BUFFER_MS', 2000),
   demoScrollMs: readNumber('DEMO_SCROLL_MS', 650),

@@ -77,6 +77,108 @@ The authoritative suite uses one primary tag per feature:
 | Provider failure | `@provider-failure` | `npm run test:provider-failure` | Controlled upstream failure behaviour |
 | Accessibility | `@accessibility` | `npm run test:accessibility` | Automated accessibility and resilient UX |
 
+### Real-provider stabilisation checkpoint
+
+The focused profile/evidence/search/document checkpoint is excluded from the
+ordinary `test:e2e` profile because it intentionally uses real job providers
+and can spend live OpenAI credit. It uses only the isolated
+`@state:DEMO_READY` identity and normally resets it; the tightly gated
+post-checkpoint persistence proof is the sole temporary preservation path. It
+does not use a personal account or wallet.
+
+Run the no-credit profile, evidence, two-role paging and in-card selector
+checkpoint with:
+
+```bash
+E2E_BASE_URL=http://localhost:3000 \
+SYSTEM_DATA_SERVICE_URL=http://localhost:8103 \
+SYSTEM_DATA_INTERNAL_CALLER_KEY='<runtime value>' \
+ALLOW_REAL_PROVIDER_E2E=true \
+npm run test:e2e:stabilisation:ui
+```
+
+Run the two-session stale-revision rejection independently, without enabling
+OpenAI generation, with the same lifecycle and real-provider authorisation
+variables:
+
+```bash
+npm run test:e2e:stabilisation:stale
+```
+
+Run the complete checkpoint, including five consecutive real generations,
+only after the real-provider and real-OpenAI Compose preflight succeeds:
+
+```bash
+E2E_BASE_URL=http://localhost:3000 \
+SYSTEM_DATA_SERVICE_URL=http://localhost:8103 \
+SYSTEM_DATA_INTERNAL_CALLER_KEY='<runtime value>' \
+ALLOW_REAL_PROVIDER_E2E=true \
+ALLOW_AI_GENERATION=true \
+PRESERVE_DEMO_READY_AFTER_RUN=true \
+npm run test:e2e:stabilisation
+```
+
+To diagnose generation with exactly one operation instead of spending the
+five-run checkpoint allowance, use the separately gated probe:
+
+```bash
+E2E_BASE_URL=http://localhost:3000 \
+SYSTEM_DATA_SERVICE_URL=http://localhost:8103 \
+SYSTEM_DATA_INTERNAL_CALLER_KEY='<runtime value>' \
+ALLOW_REAL_PROVIDER_E2E=true \
+ALLOW_AI_GENERATION=true \
+ALLOW_SINGLE_GENERATION_PROBE=true \
+PRESERVE_DEMO_READY_AFTER_RUN=false \
+npm run test:e2e:stabilisation:probe
+```
+
+The probe preflights one eligible canonical real-provider job before starting
+generation, then completes one save, evidence selection, generation, approval,
+four-format document download and reload-persistence journey. It rejects
+DEMO_READY preservation, does not write the five-job manifest and cannot run
+from the normal checkpoint profile.
+
+Preservation is accepted only for the final `@stabilisation-live`
+DEMO_READY scenario in that explicitly authorised checkpoint. The UI and
+stale-revision scenarios still reset normally. After the checkpoint, restore
+the exact locked real-provider/real-OpenAI runtime and run the read-only,
+no-lifecycle persistence proof:
+
+```bash
+E2E_BASE_URL=http://localhost:3000 \
+ALLOW_RESTORED_PERSISTENCE_SMOKE=true \
+RESTORED_RUNTIME_CONFIRMED=true \
+npm run test:e2e:stabilisation:restored
+```
+
+The standalone proof reads the bounded manifest written by the five-run
+checkpoint, signs into only the synthetic DEMO_READY identity, verifies all
+five jobs in Applications, Documents and Search, downloads one retained
+CV/cover-letter set, and captures final screenshots. Re-enable the temporary
+loopback lifecycle boundary immediately afterwards to reset DEMO_READY, even
+when this smoke fails, then restore the exact locked runtime again.
+
+Cancellation is a separate, more costly opt-in because an upstream model call
+may already be in progress when cancellation is observed:
+
+```bash
+ALLOW_REAL_PROVIDER_E2E=true \
+ALLOW_AI_GENERATION=true \
+ALLOW_CANCELLATION_E2E=true \
+npm run test:e2e:stabilisation:cancellation
+```
+
+The runner and Cucumber hooks refuse non-loopback application URLs, direct
+profile bypass, reusable session state, unapproved real-provider use and
+unapproved credit use. They verify the visible `Real providers` and
+`Real OpenAI generation` runtime states before generating. Successful review
+screenshots and synthetic PDF/DOCX downloads are retained only under the
+ignored `test-results/stabilisation/` directory. The browser flows wait on
+network responses and authoritative UI states; they do not use fixed sleeps.
+Document acceptance uses the host `unzip`, `pdfinfo` and `pdftotext` tools to
+inspect bounded local downloads; install Info-ZIP and Poppler before a live
+checkpoint rather than adding parser packages to the test dependency graph.
+
 Secondary tags may describe a scenario, but the profile policy rejects missing
 or overlapping primary tags. All imported journeys are explicitly `@demo`.
 The smoke profile contains the no-browser framework check plus the `@stack`

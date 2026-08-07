@@ -5,7 +5,12 @@ import { createContext, createPage, launchBrowser } from './browser';
 import { e2eConfig } from './config';
 import { clearAccountEmailCapture } from './account-email-capture';
 import { demoCursor } from './demo-cursor';
-import { pruneArtifacts, safeArtifactStem, writeFailureReport } from './artifacts';
+import {
+  makeArtifactPrivate,
+  pruneArtifacts,
+  safeArtifactStem,
+  writeFailureReport
+} from './artifacts';
 import { cleanupSyntheticUser } from './cleanup';
 import {
   parseNamedStateTag,
@@ -14,6 +19,11 @@ import {
   resetNamedState,
   SystemDataClient
 } from './system-data';
+import { shouldPreserveDemoReady } from './stabilisation-preservation';
+import {
+  enforceStabilisationScenarioSafety,
+  installZeroCreditGenerationFirewall
+} from './stabilisation-runtime-safety';
 import type { JobSeekerWorld } from './world';
 
 setDefaultTimeout(120_000);
@@ -23,6 +33,7 @@ Before(async function (this: JobSeekerWorld, scenario) {
     return;
   }
   const tags = scenario.pickle.tags.map(tag => tag.name);
+  enforceStabilisationScenarioSafety(tags, e2eConfig);
   const state = parseNamedStateTag(tags);
   if (e2eConfig.profile !== 'demo' && !state) {
     throw new Error('Every stateful beta scenario must declare one @state:<NAME> tag.');
@@ -35,6 +46,8 @@ Before(async function (this: JobSeekerWorld, scenario) {
   }
   this.browser = await launchBrowser();
   this.context = await createContext(this.browser);
+  this.zeroCreditGenerationFirewall =
+    await installZeroCreditGenerationFirewall(this.context, tags);
   if (e2eConfig.profile !== 'demo') {
     await this.context.tracing.start({ screenshots: true, snapshots: true, sources: false });
     this.tracingStarted = true;
@@ -64,10 +77,12 @@ After(async function (this: JobSeekerWorld, scenario) {
   if (failed && this.page && e2eConfig.profile !== 'demo') {
     await attempt(async () => {
       await fs.mkdir(artifactDirectory, { recursive: true });
+      const screenshotPath = path.join(artifactDirectory, `${artifactStem}.png`);
       const screenshot = await this.page!.screenshot({
-        path: path.join(artifactDirectory, `${artifactStem}.png`),
+        path: screenshotPath,
         fullPage: true
       });
+      await makeArtifactPrivate(screenshotPath);
       await this.attach(screenshot, 'image/png');
       await writeFailureReport(artifactDirectory, artifactStem, e2eConfig.profile);
     });
@@ -86,11 +101,25 @@ After(async function (this: JobSeekerWorld, scenario) {
     });
   }
 
+  if (this.zeroCreditGenerationFirewall) {
+    await attempt(async () => {
+      this.zeroCreditGenerationFirewall!.assertNoAttempts();
+    });
+    await attempt(async () => {
+      await this.zeroCreditGenerationFirewall!.stop();
+      this.zeroCreditGenerationFirewall = undefined;
+    });
+  }
+
   if (this.context && this.tracingStarted) {
     await attempt(async () => {
-      await this.context!.tracing.stop(failed ? { path: path.join(artifactDirectory, `${artifactStem}.zip`) } : undefined);
+      const tracePath = path.join(artifactDirectory, `${artifactStem}.zip`);
+      await this.context!.tracing.stop(failed ? { path: tracePath } : undefined);
       this.tracingStarted = false;
-      if (failed) await pruneArtifacts(artifactDirectory, e2eConfig.maxFailureArtifacts);
+      if (failed) {
+        await makeArtifactPrivate(tracePath);
+        await pruneArtifacts(artifactDirectory, e2eConfig.maxFailureArtifacts);
+      }
     });
   }
 
@@ -120,7 +149,17 @@ After(async function (this: JobSeekerWorld, scenario) {
     });
   }
 
-  if (this.systemDataClient && this.namedState) {
+  const preserveNamedState = shouldPreserveDemoReady({
+    enabled: this.config.preserveDemoReadyAfterRun,
+    profile: this.config.profile,
+    liveProfile: process.env.LIVE_STABILISATION_PROFILE,
+    allowAiGeneration: this.config.allowAiGeneration,
+    state: this.namedState,
+    tags: scenario.pickle.tags.map(tag => tag.name),
+    scenarioPassed: scenario.result?.status === Status.PASSED,
+    teardownSucceeded: teardownError === undefined
+  });
+  if (this.systemDataClient && this.namedState && !preserveNamedState) {
     await resetNamedState(
       this.systemDataClient,
       this.namedState,
