@@ -6,6 +6,10 @@ When('he opens the job search workspace', async function (this: JobSeekerWorld) 
   await this.jobSearchPage?.open();
 });
 
+When('he completes the remaining job search preferences', async function (this: JobSeekerWorld) {
+  await this.profilePage?.completeJobSearchPreferences();
+});
+
 When('he searches for software developer jobs', async function (this: JobSeekerWorld) {
   this.jobSearch = this.jobSearch ?? softwareDeveloperSearchFixture();
   await this.jobSearchPage?.searchForSoftwareDeveloperJobs(this.jobSearch);

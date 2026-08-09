@@ -37,12 +37,21 @@ export class RegisterPage extends BasePage {
     );
     await this.humanFillInPlace(this.page.getByLabel(/email address/i), user.email);
     await this.humanFillInPlace(this.page.getByLabel(/^password$/i), user.password);
+    const responsePromise = this.page.waitForResponse(response =>
+      response.request().method() === 'POST'
+      && response.url().includes('/api/auth/login')
+    );
     await this.clickCentered(
       this.byTestId('submit-sign-in-button')
         .or(this.page.locator('#btn-submit-signin'))
         .or(this.page.getByRole('button', { name: 'Sign in', exact: true }))
         .first()
     );
+    const response = await responsePromise;
+    if (!response.ok()) {
+      throw new Error(`Sign in failed with HTTP ${response.status()}.`);
+    }
+    await expect(this.byTestId('job-search-preferences')).toBeVisible();
   }
 
   private async startCreateProfile(): Promise<void> {
