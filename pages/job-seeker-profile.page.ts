@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { BasePage } from './base.page';
 import type { DemoUser } from '../support/world';
 
@@ -27,5 +27,39 @@ export class JobSeekerProfilePage extends BasePage {
 
   async expectHomeLocation(location: string): Promise<void> {
     await expect(this.page.getByText(location, { exact: false })).toBeVisible();
+  }
+
+  async completeJobSearchPreferences(): Promise<void> {
+    const profile = this.page.locator('#left-sidebar');
+
+    await profile.getByRole('button', { name: 'Edit Working preferences', exact: true }).click();
+    const workingPreferences = profile.locator('#profile-working-preferences-editor');
+    const hybrid = workingPreferences.getByLabel('Hybrid', { exact: true });
+    if (!(await hybrid.isChecked())) await hybrid.check();
+    const fullTime = workingPreferences.getByLabel('Full time', { exact: true });
+    if (!(await fullTime.isChecked())) await fullTime.check();
+    await this.saveProfileSection(profile);
+
+    await profile.getByRole('button', { name: 'Edit Availability', exact: true }).click();
+    const availability = profile.locator('#profile-availability-editor');
+    await availability.getByLabel('Or notice period in days', { exact: true }).fill('14');
+    await this.saveProfileSection(profile);
+
+    await expect(
+      profile.getByRole('heading', { name: 'Availability', exact: true }).locator('..')
+    ).toContainText("14 days' notice");
+  }
+
+  private async saveProfileSection(profile: Locator): Promise<void> {
+    const responsePromise = this.page.waitForResponse(response =>
+      response.request().method() === 'PATCH'
+      && new URL(response.url()).pathname === '/api/auth/profile'
+    );
+    await profile.getByRole('button', { name: 'Save this section', exact: true }).click();
+    const response = await responsePromise;
+    expect(response.ok(), `profile update failed with HTTP ${response.status()}`).toBeTruthy();
+    await expect(
+      profile.getByRole('button', { name: 'Save this section', exact: true })
+    ).toHaveCount(0);
   }
 }
