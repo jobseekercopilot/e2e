@@ -15,6 +15,14 @@ Then('relevant job results should be visible', async function (this: JobSeekerWo
   await this.jobSearchPage?.waitForResults();
 });
 
+Then('NHS and apprenticeship vacancies should be visible', async function (this: JobSeekerWorld) {
+  await this.jobSearchPage?.expectSpecialistVacancies();
+});
+
+Then('apprenticeship training and location details should be preserved', async function (this: JobSeekerWorld) {
+  await this.jobSearchPage?.expectApprenticeshipDetails();
+});
+
 Then('the promo shot scrolls through job results', async function (this: JobSeekerWorld) {
   await this.jobSearchPage?.smoothScrollResults();
   await this.page?.waitForTimeout(this.config.demoBufferMs);
