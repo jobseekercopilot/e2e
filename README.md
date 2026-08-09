@@ -1,5 +1,13 @@
 # Job Seeker Copilot E2E And Promo Automation
 
+## Role in Job Seeker Copilot
+
+| Role | Called by | Calls | Data |
+|---|---|---|---|
+| Cucumber/Playwright cross-service journey, accessibility and promotional evidence suite | Developers and CI | Client BFF and System Data named-state APIs | Disposable fixtures, traces, screenshots and reports only |
+
+See the central [user journeys](https://docs.jobseekercopilot.com/journeys/account-authentication/), [testing/change guide](https://docs.jobseekercopilot.com/development/change-guide/), and [local development](https://docs.jobseekercopilot.com/infrastructure/local-development/).
+
 This private repository is the authoritative Playwright, Cucumber and
 TypeScript automation suite for Job Seeker Copilot.
 
