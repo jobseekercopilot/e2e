@@ -53,6 +53,34 @@ export class JobSearchPage extends BasePage {
     ).toBeVisible({ timeout: 30_000 });
   }
 
+  async expectSpecialistVacancies(): Promise<void> {
+    await this.waitForResults();
+    const workspace = this.byTestId('job-results-workspace');
+    await expect(workspace.getByTestId('specialist-job-badge').filter({ hasText: /^NHS vacancy$/ })).toBeVisible();
+    await expect(workspace.getByTestId('specialist-job-badge').filter({ hasText: /^Apprenticeship$/ })).toBeVisible();
+
+    await workspace.getByRole('button', { name: /^Filter$/ }).click();
+    await expect(workspace.getByRole('button', { name: /^NHS Jobs \(1\)$/ })).toBeVisible();
+    await workspace.getByRole('button', { name: /^Find an apprenticeship \(1\)$/ }).click();
+    await expect(workspace.getByText('Software Developer Apprentice', { exact: true })).toBeVisible();
+  }
+
+  async expectApprenticeshipDetails(): Promise<void> {
+    const workspace = this.byTestId('job-results-workspace');
+    const card = workspace.getByTestId('job-result-card').filter({ hasText: 'Software Developer Apprentice' });
+    await expect(card).toBeVisible();
+    await card.getByRole('button', { name: /toggle job details/i }).click();
+    const details = card.getByTestId('apprenticeship-details');
+    await expect(details).toContainText('Software developer (level 4)');
+    await expect(details).toContainText('Example Training Provider');
+    await expect(details).toContainText('Leeds Digital Hub, Leeds, LS1 2AB');
+    await expect(details).toContainText('Bradford Office, Bradford, BD1 1AA');
+    await expect(card.getByRole('link', { name: /View on Find an apprenticeship/ })).toHaveAttribute(
+      'href',
+      'https://www.findapprenticeship.service.gov.uk/apprenticeship/VAC1000001'
+    );
+  }
+
   async openFirstRelevantJob(): Promise<void> {
     await this.waitForResults();
     const selectedJob = await this.curatedJobCard();
