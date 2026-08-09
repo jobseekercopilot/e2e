@@ -40,7 +40,8 @@
     "audit:policy": "node scripts/dependency-policy.js",
     "verify:tracked-files": "git ls-files --cached --others --exclude-standard -z | node scripts/verify-tracked-files.js",
     "verify:profiles": "node scripts/verify-profile-tags.js",
-    "verify": "npm run verify:runtime && npm run test:dependency-policy && npm run audit:policy && npm run verify:tracked-files && npm run verify:profiles && npm run typecheck && npm run test:definitions && npm run test:smoke:ci && npm run test:accessibility:ci && npm run test:support"
+    "verify:application-documents": "node scripts/verify-application-document-evidence.js",
+    "verify": "npm run verify:runtime && npm run test:dependency-policy && npm run audit:policy && npm run verify:tracked-files && npm run verify:profiles && npm run verify:application-documents && npm run typecheck && npm run test:definitions && npm run test:smoke:ci && npm run test:accessibility:ci && npm run test:support"
   },
   "dependencies": {
     "@cucumber/cucumber": "13.2.0",
