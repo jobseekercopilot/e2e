@@ -8,9 +8,11 @@ export class DashboardPage extends BasePage {
   }
 
   async waitForDashboard(): Promise<void> {
-    // TODO frontend: add data-testid="dashboard-page" to the dashboard root.
+    // The current dashboard exposes stable workspace-tab test IDs rather than a
+    // dashboard-root test ID. Keep the legacy fallbacks for older deployments.
     await expect(
       this.byTestId('dashboard-page')
+        .or(this.byTestId('workspace-tab-search'))
         .or(this.page.getByRole('heading', { name: /job matches|job seeker dashboard/i }))
         .or(this.page.getByRole('heading', { name: /claimant profile/i }))
         .first()
