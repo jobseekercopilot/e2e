@@ -36,6 +36,7 @@ interface UploadOperation {
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const GENERATION_EVIDENCE_TITLE = 'Synthetic application document project';
 const FORBIDDEN_CONTENT_KEYS = new Set([
   'content', 'extractedText', 'originalFileName', 'storageKey', 'bucket',
   'objectKey', 'documentBytes', 'downloadUrl', 'accessToken'
@@ -57,7 +58,9 @@ export class ApplicationDocumentJourneyPage {
   constructor(private readonly page: Page, private readonly baseUrl: string) {
     page.on('response', response => {
       const pathname = new URL(response.url()).pathname;
-      if (!pathname.includes('/api/v1/document-generation/application-document-upload')) return;
+      const isUploadCommand = /^\/api\/v1\/document-generation\/applications\/[^/]+\/document-uploads$/.test(pathname);
+      const isUploadStatus = /^\/api\/v1\/document-generation\/application-document-uploads\/[^/]+$/.test(pathname);
+      if (!isUploadCommand && !isUploadStatus) return;
       this.uploadResponses.push(response);
       this.pendingResponseReads.push(response.json().then(body => {
         if (isRecord(body)) this.uploadPayloads.push(body as UploadOperation);
@@ -76,12 +79,13 @@ export class ApplicationDocumentJourneyPage {
     this.walletBefore = await this.walletBalance();
     await this.page.goto('/dashboard');
     await this.page.getByTestId('workspace-tab-search').click();
-    await this.ensureSearchResults();
+    await this.ensureSearchResults(entryPoint);
     await expect(this.page.getByTestId('job-result-card').first()).toBeVisible({ timeout: 30_000 });
     this.selectedCard = await this.openJobCard(entryPoint);
     const action = this.selectedCard.getByTestId(
       entryPoint === 'ADD' ? 'track-application-button' : 'generate-documents-button'
     );
+    if (entryPoint === 'GENERATE') await this.ensureConfirmedGenerationEvidence();
     const createsApplication = await this.selectedCard.getByTestId('track-application-button')
       .isVisible().catch(() => false);
     const createResponse = createsApplication
@@ -104,9 +108,9 @@ export class ApplicationDocumentJourneyPage {
     await expect(this.page.getByTestId('application-document-choice')).toBeVisible();
   }
 
-  private async ensureSearchResults(): Promise<void> {
+  private async ensureSearchResults(entryPoint: 'ADD' | 'GENERATE'): Promise<void> {
     const cards = this.page.getByTestId('job-result-card');
-    if (await cards.first().isVisible().catch(() => false)) return;
+    if (entryPoint === 'ADD' && await cards.first().isVisible().catch(() => false)) return;
 
     const findJobs = this.page.getByRole('button', { name: 'Find jobs', exact: true });
     if (await this.page.getByTestId('search-setup-prompt').isVisible().catch(() => false)) {
@@ -119,19 +123,104 @@ export class ApplicationDocumentJourneyPage {
       const locationOption = this.page.locator('#profile-location-options button').first();
       await expect(locationOption).toBeVisible();
       await locationOption.click();
-      await this.page.getByRole('button', { name: 'Save this section', exact: true }).click();
-      await expect(this.page.getByRole('button', { name: 'Save this section', exact: true })).toBeHidden();
+      await this.saveProfileSection();
 
-      await this.page.getByRole('button', { name: 'Edit Working preferences', exact: true }).click();
-      const workplace = this.page.getByRole('group', { name: 'Workplace', exact: true });
+      const workplace = await this.openProfileGroup('Edit Working preferences', 'Workplace');
       await workplace.getByLabel('Remote', { exact: true }).check();
-      await this.page.getByRole('button', { name: 'Save this section', exact: true }).click();
-      await expect(this.page.getByRole('button', { name: 'Save this section', exact: true })).toBeHidden();
+      await this.saveProfileSection();
+    }
+
+    if (entryPoint === 'GENERATE') {
+      // DEMO_READY intentionally owns all nine core fixture jobs. Search Leeds
+      // so the untracked governed apprenticeship vacancy is available for a
+      // fresh generation journey rather than selecting a progressed application.
+      await this.page.getByRole('button', { name: 'Edit Location and commute', exact: true }).click();
+      const location = this.page.getByLabel('Town or postcode', { exact: true });
+      await location.fill('LS1 1UR');
+      const locationOption = this.page.locator('#profile-location-options button').first();
+      await expect(locationOption).toBeVisible();
+      await locationOption.click();
+      await this.saveProfileSection();
     }
 
     await expect(findJobs).toBeEnabled();
     await expect(this.page.getByTestId('job-results-workspace')).toBeVisible();
+    const searchResponse = this.page.waitForResponse(response =>
+      response.request().method() === 'POST'
+      && new URL(response.url()).pathname === '/api/jobs/search');
     await findJobs.click();
+    const completedSearch = await searchResponse;
+    expect(completedSearch.ok(), 'The fixture job search must complete successfully.').toBe(true);
+    await expect(this.page.getByTestId('job-results-workspace')
+      .getByRole('button', { name: 'Refresh', exact: true }))
+      .toBeEnabled({ timeout: 30_000 });
+  }
+
+  private async openProfileGroup(editLabel: string, groupLabel: string): Promise<Locator> {
+    const edit = this.page.getByRole('button', { name: editLabel, exact: true });
+    const group = this.page.getByRole('group', { name: groupLabel, exact: true });
+    await edit.click();
+    try {
+      await group.waitFor({ state: 'visible', timeout: 3_000 });
+    } catch {
+      // A just-saved profile can rerender once after the edit click. Reopen the
+      // section once after that bounded transition.
+      await edit.click();
+      await group.waitFor({ state: 'visible', timeout: 10_000 });
+    }
+    return group;
+  }
+
+  private async saveProfileSection(): Promise<void> {
+    const save = this.page.getByRole('button', { name: 'Save this section', exact: true });
+    const response = this.page.waitForResponse(candidate =>
+      candidate.request().method() === 'PATCH'
+      && new URL(candidate.url()).pathname === '/api/auth/profile');
+    await save.click();
+    expect((await response).ok(), 'The search-profile section must save before continuing.').toBe(true);
+    await expect(save).toBeHidden();
+  }
+
+  private async ensureConfirmedGenerationEvidence(): Promise<void> {
+    const summary = this.page.getByTestId('profile-evidence-summary');
+    await summary.getByRole('button', { name: 'Manage experience & achievements', exact: true }).click();
+    const dialog = this.page.locator('#experience-evidence-dialog');
+    await expect(dialog).toBeVisible();
+    let card = dialog.locator('article.evidence-card').filter({ hasText: GENERATION_EVIDENCE_TITLE });
+    if (await card.getByText('User confirmed', { exact: true }).isVisible().catch(() => false)) {
+      await dialog.getByRole('button', { name: 'Close Experience and Evidence manager' }).click();
+      await expect(dialog).toBeHidden();
+      return;
+    }
+
+    await dialog.getByRole('button', { name: /Add experience or achievement/i }).click();
+    const form = dialog.locator('form');
+    await expect(form).toBeVisible();
+    await form.locator('select[name="category"]').selectOption('PROJECT');
+    await form.getByLabel('Project title', { exact: true }).fill(GENERATION_EVIDENCE_TITLE);
+    await form.getByLabel('Your role in the project (optional)', { exact: true }).fill('Software developer');
+    await form.locator('textarea[name="description"]').fill(
+      'Built a fully synthetic Java and Angular workflow with secure REST APIs, automated tests, accessible interfaces and deterministic document-generation integration.'
+    );
+    await form.locator('input[name="startDate"]').fill('2025-01-01');
+    await form.locator('input[name="endDate"]').fill('2026-07-01');
+
+    const created = this.page.waitForResponse(response =>
+      response.request().method() === 'POST'
+      && new URL(response.url()).pathname === '/api/auth/evidence');
+    await form.getByRole('button', { name: 'Save as draft', exact: true }).click();
+    expect((await created).ok(), 'Synthetic generation evidence must be saved.').toBe(true);
+
+    card = dialog.locator('article.evidence-card').filter({ hasText: GENERATION_EVIDENCE_TITLE });
+    await expect(card).toBeVisible();
+    const confirmed = this.page.waitForResponse(response =>
+      response.request().method() === 'POST'
+      && /^\/api\/auth\/evidence\/[^/]+\/confirm$/.test(new URL(response.url()).pathname));
+    await card.getByRole('button', { name: 'Review & confirm', exact: true }).click();
+    expect((await confirmed).ok(), 'Synthetic generation evidence must be user-confirmed.').toBe(true);
+    await expect(card.getByText('User confirmed', { exact: true })).toBeVisible();
+    await dialog.getByRole('button', { name: 'Close Experience and Evidence manager' }).click();
+    await expect(dialog).toBeHidden();
   }
 
   async chooseDocuments(choices: Record<DocumentPurpose, DocumentChoice>): Promise<void> {
@@ -176,7 +265,7 @@ export class ApplicationDocumentJourneyPage {
     const selectAll = selector.getByRole('button', { name: 'Select all', exact: true });
     const count = await selectAll.count();
     expect(count).toBe(expectedPurposes.length);
-    for (let index = 0; index < count; index += 1) await selectAll.nth(index).click();
+    for (let index = 0; index < count; index += 1) await selectAll.first().click();
 
     const startsBefore = this.generationStarts;
     const action = selector.getByRole('button', { name: /^Generate .*AI Credit/ });
@@ -185,7 +274,10 @@ export class ApplicationDocumentJourneyPage {
     const expectedLabel = expectedPurposes.length === 2
       ? /CV and cover letter generated successfully/i
       : new RegExp(`${expectedPurposes[0] === 'CV' ? 'CV' : 'Cover letter'} generated successfully`, 'i');
-    await expect(this.selectedJobCard().getByText(expectedLabel).first()).toBeVisible({ timeout: 12 * 60_000 });
+    const completionState = this.selectedJobCard().getByText(expectedLabel).first()
+      .or(this.page.locator('#toast-notification').getByText(expectedLabel).first())
+      .or(this.selectedJobCard().getByText('Documents prepared', { exact: true }));
+    await expect(completionState.first()).toBeVisible({ timeout: 12 * 60_000 });
     expect(this.generationStarts).toBe(startsBefore + 1);
   }
 
@@ -435,15 +527,20 @@ export class ApplicationDocumentJourneyPage {
   }
 
   private async signIn(page: Page, identity: NamedStateIdentity): Promise<void> {
-    await page.goto('/');
-    await page.getByTestId('sign-in-tab').click();
+    await page.goto(this.baseUrl);
+    await page.getByTestId('sign-in-tab')
+      .or(page.locator('#tab-btn-signin'))
+      .or(page.getByRole('button', { name: /sign in/i }))
+      .first()
+      .click();
     await page.getByLabel(/email address/i).fill(identity.email);
     await page.getByLabel(/^password$/i).fill(PUBLIC_NAMED_STATE_PASSWORD);
-    await Promise.all([
+    const [response] = await Promise.all([
       page.waitForResponse(response => response.request().method() === 'POST'
         && new URL(response.url()).pathname === '/api/auth/login'),
       page.locator('#mode-signin-segment form').getByRole('button', { name: 'Sign in', exact: true }).click()
     ]);
+    expect(response.ok(), 'The secondary owner must sign in successfully.').toBe(true);
     await expect(page).toHaveURL(/\/dashboard$/);
   }
 }
