@@ -6,6 +6,7 @@ import { cleanupSyntheticUser, type FetchLike } from '../support/cleanup';
 import {
   makeArtifactPrivate,
   pruneArtifacts,
+  safeRequestUrl,
   safeArtifactStem,
   writeFailureReport
 } from '../support/artifacts';
@@ -126,6 +127,29 @@ test('failure artifacts are parallel-safe, private and bounded', async () => {
     expect(await fs.stat(tracePath).then(stat => stat.mode & 0o777)).toBe(0o600);
     await pruneArtifacts(directory, 2);
     expect((await fs.readdir(directory))).toHaveLength(2);
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('failure evidence removes query strings and bounds browser diagnostics', async () => {
+  expect(safeRequestUrl('https://example.test/api/jobs?token=secret#fragment'))
+    .toBe('https://example.test/api/jobs');
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'jsc-e2e-evidence-'));
+  try {
+    const reportPath = await writeFailureReport(directory, safeArtifactStem('network failure'), 'e2e', {
+      scenario: 'A synthetic scenario',
+      consoleErrors: Array.from({ length: 30 }, (_, index) => `console ${index}`),
+      networkErrors: [{
+        method: 'GET',
+        url: 'https://example.test/private?access_token=secret',
+        status: 500
+      }]
+    });
+    const report = JSON.parse(await fs.readFile(reportPath, 'utf8'));
+    expect(report.consoleErrors).toHaveLength(20);
+    expect(report.networkErrors[0].url).toBe('https://example.test/private');
+    expect(JSON.stringify(report)).not.toContain('access_token');
   } finally {
     await fs.rm(directory, { recursive: true, force: true });
   }

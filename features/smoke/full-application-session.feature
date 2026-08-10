@@ -1,4 +1,4 @@
-@smoke @stack
+@smoke @stack @critical-smoke @core-regression
 Feature: Full application session and profile smoke
 
   @state:REGISTRATION_CLEAN
@@ -15,6 +15,14 @@ Feature: Full application session and profile smoke
     When he opens Job Seeker Copilot
     And he signs in with the named-state account
     Then the claimant profile for the named-state user is visible
+
+  @state:LOGIN_SESSION
+  Scenario: An authenticated claimant signs out and cannot reuse the protected session
+    Given the named-state user "login-primary" has an account
+    When he opens Job Seeker Copilot
+    And he signs in with the named-state account
+    And he signs out of the claimant session
+    Then the protected workspace remains unavailable
 
   @state:PROFILE_LOCATION
   Scenario: A claimant updates a profile with fixture-backed postcode metadata

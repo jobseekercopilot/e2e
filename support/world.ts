@@ -17,6 +17,7 @@ import { e2eConfig } from './config';
 import { createRunId } from './synthetic-data';
 import type { NamedState, NamedStateDefinition, SystemDataClient } from './system-data';
 import type { ZeroCreditGenerationFirewall } from './stabilisation-runtime-safety';
+import type { BrowserNetworkSample } from './artifacts';
 
 export interface QualificationFixture {
   name: string;
@@ -60,6 +61,10 @@ export class JobSeekerWorld extends World {
   registrationRequestCount = 0;
   profileUpdateRequestCount = 0;
   tracingStarted = false;
+  scenarioStartedAt = '';
+  readonly consoleErrors: string[] = [];
+  readonly networkErrors: BrowserNetworkSample[] = [];
+  readonly networkSamples: BrowserNetworkSample[] = [];
   namedState?: NamedState;
   namedStateDefinition?: NamedStateDefinition;
   systemDataClient?: SystemDataClient;

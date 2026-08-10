@@ -1,7 +1,7 @@
-@e2e
+@e2e @core-regression
 Feature: Deterministic application tracking
 
-  @state:DEMO_READY
+  @state:DEMO_READY @critical-smoke
   Scenario: A seeded application progresses to interview and persists
     Given Alex Taylor is logged in
     When he opens the application tracker

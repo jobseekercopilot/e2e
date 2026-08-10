@@ -1,4 +1,4 @@
-@e2e @application-documents
+@e2e @application-documents @core-regression
 Feature: Uploaded and generated documents remain explicit application choices
 
   Background:
@@ -20,7 +20,7 @@ Feature: Uploaded and generated documents remain explicit application choices
       | Not now | Upload  |
       | Upload  | Upload  |
 
-  @state:DEMO_READY
+  @state:DEMO_READY @critical-smoke
   Scenario: Generate both explicitly selected application documents
     When the user starts the Generate application document journey
     And the user chooses Generate for the CV and Generate for the cover letter

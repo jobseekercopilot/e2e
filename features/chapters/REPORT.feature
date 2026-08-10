@@ -1,4 +1,4 @@
-@demo
+@demo @promo
 Feature: REPORT
 
   Scenario: Alex reviews evidence of job-search activity

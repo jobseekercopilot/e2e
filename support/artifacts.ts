@@ -25,8 +25,77 @@ export async function makeArtifactPrivate(artifactPath: string): Promise<void> {
   await fs.chmod(artifactPath, 0o600);
 }
 
-export async function writeFailureReport(directory: string, stem: string, profile: string): Promise<string> {
+export interface BrowserNetworkSample {
+  method: string;
+  url: string;
+  status?: number;
+  durationMs?: number;
+  failure?: string;
+}
+
+export interface ScenarioEvidence {
+  scenario?: string;
+  tags?: string[];
+  startedAt?: string;
+  finishedAt?: string;
+  error?: string;
+  consoleErrors?: string[];
+  networkErrors?: BrowserNetworkSample[];
+}
+
+function boundedText(value: string, maximum = 500): string {
+  return value.replace(/[\r\n\t]+/g, ' ').trim().slice(0, maximum);
+}
+
+export function safeRequestUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    return `${url.origin}${url.pathname}`.slice(0, 500);
+  } catch {
+    return 'invalid-url';
+  }
+}
+
+export function boundedEvidence(evidence: ScenarioEvidence): ScenarioEvidence {
+  return {
+    ...evidence,
+    scenario: evidence.scenario ? boundedText(evidence.scenario, 160) : undefined,
+    error: evidence.error ? boundedText(evidence.error) : undefined,
+    tags: evidence.tags?.slice(0, 20).map(tag => boundedText(tag, 80)),
+    consoleErrors: evidence.consoleErrors?.slice(-20).map(message => boundedText(message)),
+    networkErrors: evidence.networkErrors?.slice(-20).map(sample => ({
+      ...sample,
+      url: safeRequestUrl(sample.url),
+      failure: sample.failure ? boundedText(sample.failure, 240) : undefined
+    }))
+  };
+}
+
+export async function writeFailureReport(
+  directory: string,
+  stem: string,
+  profile: string,
+  evidence: ScenarioEvidence = {}
+): Promise<string> {
   const reportPath = path.join(directory, `${stem}.json`);
-  await fs.writeFile(reportPath, `${JSON.stringify({ profile, failed: true }, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
+  const details = boundedEvidence(evidence);
+  const report = Object.keys(details).length === 0
+    ? { profile, failed: true }
+    : { profile, failed: true, ...details };
+  await fs.writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
+  return reportPath;
+}
+
+export async function writeCapacityScenarioReport(
+  directory: string,
+  stem: string,
+  report: Record<string, unknown>
+): Promise<string> {
+  await fs.mkdir(directory, { recursive: true });
+  const reportPath = path.join(directory, `${stem}.json`);
+  await fs.writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, {
+    flag: 'wx',
+    mode: 0o600
+  });
   return reportPath;
 }

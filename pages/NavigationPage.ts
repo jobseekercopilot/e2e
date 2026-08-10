@@ -50,4 +50,20 @@ export class NavigationPage extends BasePage {
       .or(this.page.getByText(/AI Credit/i).first());
     await this.intentionalScrollNearCenter(target.first());
   }
+
+  async signOutAndRejectProtectedReuse(): Promise<void> {
+    await this.page.locator('#btn-profile-dropdown').click();
+    const logoutResponse = this.page.waitForResponse(response =>
+      response.request().method() === 'POST'
+      && new URL(response.url()).pathname === '/api/auth/logout'
+    );
+    await this.page.getByRole('menuitem', { name: 'Sign out', exact: true }).click();
+    const response = await logoutResponse;
+    expect(response.ok(), `Logout failed with HTTP ${response.status()}.`).toBe(true);
+    await expect(this.page.locator('#tab-btn-signin')).toBeVisible();
+
+    await this.page.goto('/dashboard');
+    await expect(this.page.locator('#tab-btn-signin')).toBeVisible();
+    await expect(this.page.locator('#user-profile-widget')).toHaveCount(0);
+  }
 }

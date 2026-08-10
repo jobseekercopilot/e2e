@@ -66,6 +66,12 @@ export const e2eConfig = {
   saveDemoSession,
   storageState: assertRelativeArtifactPath('STORAGE_STATE', process.env.STORAGE_STATE ?? '.auth/alex-taylor-session.json', '.auth'),
   artifactDir: assertRelativeArtifactPath('ARTIFACT_DIR', process.env.ARTIFACT_DIR ?? 'test-results/failures', 'test-results'),
+  capacityResultDir: assertRelativeArtifactPath(
+    'CAPACITY_RESULT_DIR',
+    process.env.CAPACITY_RESULT_DIR ?? 'test-results/capacity/workers',
+    'test-results/capacity'
+  ),
+  capacityFixtureConfirmed: readBoolean('CAPACITY_FIXTURE_CONFIRMED', false),
   maxFailureArtifacts: readNumber('MAX_FAILURE_ARTIFACTS', 20),
   cleanupEnabled: readBoolean('E2E_CLEANUP_ENABLED', false),
   cleanupBaseUrl: process.env.E2E_CLEANUP_BASE_URL,

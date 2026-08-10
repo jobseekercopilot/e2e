@@ -46,6 +46,15 @@ When('he signs in with the named-state account', async function (this: JobSeeker
   await this.registerPage?.loginUser(this.demoUser);
 });
 
+When('he signs out of the claimant session', async function (this: JobSeekerWorld) {
+  await this.navigationPage?.signOutAndRejectProtectedReuse();
+});
+
+Then('the protected workspace remains unavailable', async function (this: JobSeekerWorld) {
+  await this.page?.reload();
+  await this.page?.locator('#tab-btn-signin').waitFor({ state: 'visible' });
+});
+
 When('he completes his job seeker profile', async function (this: JobSeekerWorld) {
   if (!this.demoUser) {
     throw new Error('Demo user fixture was not loaded.');

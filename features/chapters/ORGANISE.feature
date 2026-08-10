@@ -1,4 +1,4 @@
-@demo
+@demo @promo
 Feature: ORGANISE
 
   Scenario: Alex organises generated documents

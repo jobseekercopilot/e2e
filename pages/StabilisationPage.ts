@@ -932,11 +932,11 @@ export class StabilisationPage {
       .or(page.getByRole('button', { name: /sign in/i }))
       .first()
       .click();
-    await page.getByLabel(/email address/i).fill(identity.email);
-    await page.getByLabel(/^password$/i).fill(PUBLIC_NAMED_STATE_PASSWORD);
     const signInForm = page.locator('#mode-signin-segment form').filter({
       has: page.locator('#login-password')
     });
+    await signInForm.getByLabel(/email address/i).fill(identity.email);
+    await signInForm.getByLabel(/^password$/i).fill(PUBLIC_NAMED_STATE_PASSWORD);
     const [response] = await Promise.all([
       page.waitForResponse(candidate =>
         candidate.request().method() === 'POST'

@@ -1,4 +1,4 @@
-@e2e @stack @account-email @state:LOGIN_SESSION
+@e2e @stack @account-email @state:LOGIN_SESSION @core-regression
 Feature: Secure password recovery
 
   Scenario: A claimant resets a forgotten password without account enumeration or token persistence

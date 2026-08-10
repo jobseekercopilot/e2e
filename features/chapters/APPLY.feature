@@ -1,4 +1,4 @@
-@demo
+@demo @promo
 Feature: APPLY
 
   Scenario: Alex generates and downloads application documents

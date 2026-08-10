@@ -52,8 +52,5 @@ Then('the job details should be visible', async function (this: JobSeekerWorld) 
 });
 
 Then('document generation actions should be visible if available', async function (this: JobSeekerWorld) {
-  const visible = await this.jobDetailsPage?.expectGenerationActionsIfAvailable();
-  if (!visible) {
-    return 'pending';
-  }
+  await this.jobDetailsPage?.expectGenerationActionsIfAvailable();
 });

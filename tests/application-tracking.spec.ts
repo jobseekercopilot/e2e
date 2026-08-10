@@ -4,7 +4,7 @@ import { ApplicationTrackerPage } from '../pages/ApplicationTrackerPage';
 const applicationMarkup = `
   <base href="http://application.test/" />
   <section data-testid="applications-workspace">
-    <button type="button" onclick="fetch('/api/v1/applications/user/test-user')">
+    <button type="button" onclick="fetch('/api/jobs/applications')">
       Refresh
     </button>
     <article class="application-card" data-testid="application-card">
@@ -27,7 +27,7 @@ const applicationMarkup = `
 test('application status action and persisted refresh are mandatory evidence', async ({
   page
 }) => {
-  await page.route('**/api/v1/applications/user/test-user', route =>
+  await page.route('**/api/jobs/applications', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
   );
   await page.setContent(applicationMarkup);

@@ -533,12 +533,13 @@ export class ApplicationDocumentJourneyPage {
       .or(page.getByRole('button', { name: /sign in/i }))
       .first()
       .click();
-    await page.getByLabel(/email address/i).fill(identity.email);
-    await page.getByLabel(/^password$/i).fill(PUBLIC_NAMED_STATE_PASSWORD);
+    const signInForm = page.locator('#mode-signin-segment form');
+    await signInForm.getByLabel(/email address/i).fill(identity.email);
+    await signInForm.getByLabel(/^password$/i).fill(PUBLIC_NAMED_STATE_PASSWORD);
     const [response] = await Promise.all([
       page.waitForResponse(response => response.request().method() === 'POST'
         && new URL(response.url()).pathname === '/api/auth/login'),
-      page.locator('#mode-signin-segment form').getByRole('button', { name: 'Sign in', exact: true }).click()
+      signInForm.getByRole('button', { name: 'Sign in', exact: true }).click()
     ]);
     expect(response.ok(), 'The secondary owner must sign in successfully.').toBe(true);
     await expect(page).toHaveURL(/\/dashboard$/);

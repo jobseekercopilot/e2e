@@ -52,7 +52,7 @@ export class ApplicationTrackerPage extends BasePage {
   }
 
   async moveApplicationToInterview(): Promise<void> {
-    await this.updateApplicationStatus(['documents-generated', 'applied'], /Interview/i, 'interview');
+    await this.updateApplicationStatus(['applied'], /Interview/i, 'interview');
   }
 
   async moveInterviewApplicationToOffer(): Promise<void> {
@@ -79,11 +79,12 @@ export class ApplicationTrackerPage extends BasePage {
       throw new Error(`No application was changed to ${expectedStatus} in this scenario.`);
     }
 
-    const refresh = this.page.getByRole('button', { name: /^Refresh$/i });
+    const refresh = this.byTestId('applications-workspace')
+      .getByRole('button', { name: 'Refresh', exact: true });
     await expect(refresh, 'Application refresh control is missing.').toBeVisible();
     const refreshedApplications = this.page.waitForResponse(
       response => response.request().method() === 'GET'
-        && new URL(response.url()).pathname.includes('/applications/user/'),
+        && new URL(response.url()).pathname === '/api/jobs/applications',
       { timeout: 20_000 }
     );
     await this.clickFramed(refresh);
@@ -147,6 +148,10 @@ export class ApplicationTrackerPage extends BasePage {
 
   private async cardWithStatus(status: RegExp) {
     const cards = this.applicationCards();
+    await expect(
+      cards.first(),
+      'Application fixture did not render any application card.'
+    ).toBeVisible({ timeout: 20_000 });
     const matching = cards.filter({ hasText: status });
     return this.requireVisibleLocator(
       matching,
@@ -157,6 +162,10 @@ export class ApplicationTrackerPage extends BasePage {
 
   private async cardWithCurrentStatus(statuses: string[]) {
     const cards = this.applicationCards();
+    await expect(
+      cards.first(),
+      'Application fixture did not render any application card.'
+    ).toBeVisible({ timeout: 20_000 });
     for (const status of statuses) {
       const matching = cards.filter({ has: this.page.locator(`.status-${status}`) });
       const visibleMatching = await this.visibleLocator(matching, 1);
