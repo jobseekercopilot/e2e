@@ -21,6 +21,10 @@ Then('he can change the application status if available', async function (this: 
   await tracker(this).moveApplicationToInterview();
 });
 
+Then('both specialist applications should be visible', async function (this: JobSeekerWorld) {
+  await tracker(this).expectSpecialistApplications();
+});
+
 When('he marks an application as offer if available', async function (this: JobSeekerWorld) {
   await tracker(this).open();
   await tracker(this).moveInterviewApplicationToOffer();

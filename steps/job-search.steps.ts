@@ -27,6 +27,10 @@ Then('apprenticeship training and location details should be preserved', async f
   await this.jobSearchPage?.expectApprenticeshipDetails();
 });
 
+When('he starts both specialist vacancies as applications', async function (this: JobSeekerWorld) {
+  await this.jobSearchPage?.startSpecialistApplications();
+});
+
 Then('the promo shot scrolls through job results', async function (this: JobSeekerWorld) {
   await this.jobSearchPage?.smoothScrollResults();
   await this.page?.waitForTimeout(this.config.demoBufferMs);
