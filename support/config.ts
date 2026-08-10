@@ -104,6 +104,11 @@ export const e2eConfig = {
   typingDelayMs: readNumber('TYPING_DELAY_MS', 65),
   demoBufferMs: readNumber('DEMO_BUFFER_MS', 2000),
   demoScrollMs: readNumber('DEMO_SCROLL_MS', 650),
+  showcaseTimelinePath: assertRelativeArtifactPath(
+    'SHOWCASE_TIMELINE_PATH',
+    process.env.SHOWCASE_TIMELINE_PATH ?? 'demo-recordings/final/showcase-timeline.json',
+    'demo-recordings'
+  ),
   videoName: process.env.VIDEO_NAME ?? 'registration-demo'
 };
 

@@ -20,6 +20,15 @@ Feature: Uploaded and generated documents remain explicit application choices
       | Not now | Upload  |
       | Upload  | Upload  |
 
+  @state:CROSS_USER_SECURITY
+  Scenario: Upload a real DOCX package as the application CV
+    When the user starts the Add application document journey
+    And the user uploads a valid DOCX CV and skips the cover letter
+    Then the selected application uploads complete
+    And the saved application contains the exact selected document references
+    And the application document credit and content boundary is correct
+    And the uploaded application document download is private and safe
+
   @state:DEMO_READY @critical-smoke
   Scenario: Generate both explicitly selected application documents
     When the user starts the Generate application document journey

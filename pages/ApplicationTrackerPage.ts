@@ -45,6 +45,39 @@ export class ApplicationTrackerPage extends BasePage {
     ).toBeVisible({ timeout: 20_000 });
   }
 
+  async showShowcaseApplication(title: string, company: string): Promise<void> {
+    await this.open();
+    let card = this.applicationCardFor(title, company);
+    await expect(card).toBeVisible({ timeout: 30_000 });
+    await this.intentionalScrollNearCenter(card);
+    await this.spotlight(card);
+    await this.pauseAfterFeature();
+
+    const documents = card.getByTestId('application-documents');
+    await this.clickFramed(documents.locator('summary'));
+    await expect(documents.getByText(/CV.*Version|CV and cover letter|exact document versions/i).first())
+      .toBeVisible({ timeout: 30_000 });
+    await this.pauseAfterFeature();
+    await this.clearSpotlight();
+
+    await this.updateSpecificApplicationStatus(title, company, 'Mark as Applied', 'applied');
+    await this.updateSpecificApplicationStatus(title, company, 'Mark Interview', 'interview');
+
+    card = this.applicationCardFor(title, company);
+    await this.intentionalScrollNearCenter(card);
+    await this.spotlight(card);
+    await expect(card.locator('.status-interview')).toBeVisible();
+    await expect(card.getByText('Mark Applied', { exact: true })).toBeVisible();
+    await expect(card.getByText('Interview', { exact: true }).first()).toBeVisible();
+    const evidence = card.getByTestId('evidence-used');
+    if (await evidence.isVisible().catch(() => false)) {
+      await this.clickFramed(evidence.locator('summary'));
+      await expect(evidence.getByText(/Profile revision|Claim ledger|Source snapshot/i).first()).toBeVisible();
+    }
+    await this.pauseAfterFeature();
+    await this.clearSpotlight();
+  }
+
   async changeFirstApplicationStatus(status: 'Applied' | 'Interview' | 'Offer'): Promise<void> {
     await (status === 'Offer'
       ? this.moveInterviewApplicationToOffer()
@@ -144,6 +177,26 @@ export class ApplicationTrackerPage extends BasePage {
       company,
       status: completedStatus
     };
+  }
+
+  private async updateSpecificApplicationStatus(
+    title: string,
+    company: string,
+    actionLabel: string,
+    statusClass: string
+  ): Promise<void> {
+    const card = this.applicationCardFor(title, company);
+    await expect(card).toBeVisible({ timeout: 20_000 });
+    await this.intentionalScrollNearCenter(card);
+    const menu = card.locator('details.actions-menu');
+    if (!(await menu.getAttribute('open'))) await this.clickFramed(menu.locator('summary'));
+    const response = this.page.waitForResponse(candidate =>
+      candidate.request().method() === 'PATCH'
+      && /\/api\/jobs\/applications\/[^/]+\/status$/.test(new URL(candidate.url()).pathname));
+    await this.clickFramed(card.getByRole('button', { name: actionLabel, exact: true }));
+    expect((await response).ok(), `${actionLabel} must update the showcase application.`).toBeTruthy();
+    await expect(this.applicationCardFor(title, company).locator(`.status-${statusClass}`))
+      .toBeVisible({ timeout: 20_000 });
   }
 
   private async cardWithStatus(status: RegExp) {

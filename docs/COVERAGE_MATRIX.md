@@ -26,6 +26,22 @@ Status values: **Covered**, **Partial**, **Explicit live**, or **Gap**. `Fixture
 | Reporting/activity | No | Application/document privacy assertions | Content-free reporting | REPORT | No | Fixture reporting | Covered |
 | Payment/credit | No | Demo-only credit presentation | Payments remain separate feature work | REPORT | No | Fixture only | Partial |
 
+## Persona coverage
+
+The governed `real-world-personas-v1` state provides seven machine-readable profiles: minimal, typical, rich, stress, uploaded-CV-first, manual-profile-first, and career-changer. It covers the requested returning-user shape through prepared persisted identities rather than a separate duplicate profile. Exact field sizes and the persona-by-capability assessment are recorded in [REAL_WORLD_COVERAGE_AUDIT.md](REAL_WORLD_COVERAGE_AUDIT.md).
+
+| Persona | Profile/search | Upload | Generate | Track/return | Boundary status |
+|---|---:|---:|---:|---:|---|
+| Minimal | Yes | Applicable | Applicable | Prepared identity | Deterministic fixture |
+| Typical | Yes | Yes | Yes | Yes | Deterministic fixture |
+| Rich | Yes | Yes | Yes | Yes | Deterministic fixture |
+| Stress | Contract limits | Yes | Not live-tested | Prepared identity | Large-but-valid, not max-scale |
+| Uploaded-CV-first | Yes | Real PDF and DOCX | Optional | Yes | Exact SHA/reference assertions |
+| Manual-profile-first | Yes | Optional | Fixture generation | Yes | Structured profile fields |
+| Career-changer | Yes | Yes | Fixture generation | Yes | Transferable evidence narrative |
+
+`Yes` denotes deterministic product/contract coverage. It does not imply a paid live-provider call. Live LLM/provider rows remain explicit and gated; no credentials were present for this validation run.
+
 ## Suite categories
 
 - **Critical smoke:** `@critical-smoke`; registration/login/profile/location/specialist search/application start plus representative tracking/document generation.

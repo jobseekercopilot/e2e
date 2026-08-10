@@ -65,6 +65,7 @@ Before(async function (this: JobSeekerWorld, scenario) {
     this.tracingStarted = true;
   }
   const page = await createPage(this.context);
+  if (tags.includes('@showcase')) this.showcaseVideoStartedAtMs = Date.now();
   const requestStartedAt = new WeakMap<object, number>();
   page.on('request', request => requestStartedAt.set(request, Date.now()));
   page.on('console', message => {
@@ -155,6 +156,24 @@ After(async function (this: JobSeekerWorld, scenario) {
   if (e2eConfig.profile === 'demo') {
     await attempt(async () => { await this.page?.waitForTimeout(e2eConfig.demoBufferMs); });
     if (this.page) await attempt(async () => { await demoCursor.remove(this.page!); });
+  }
+
+  if (scenario.pickle.tags.some(tag => tag.name === '@showcase')) {
+    await attempt(async () => {
+      if (this.showcaseVideoStartedAtMs === undefined) return;
+      if (!this.showcaseMarkers.some(marker => marker.section === 'END')) {
+        this.markShowcaseSection('END');
+      }
+      const timelinePath = path.resolve(__dirname, '..', e2eConfig.showcaseTimelinePath);
+      await fs.mkdir(path.dirname(timelinePath), { recursive: true });
+      await fs.writeFile(timelinePath, `${JSON.stringify({
+        schemaVersion: 1,
+        scenario: scenario.pickle.name,
+        status: scenario.result?.status,
+        startedAt: new Date(this.showcaseVideoStartedAtMs).toISOString(),
+        markers: this.showcaseMarkers
+      }, null, 2)}\n`, { mode: 0o600 });
+    });
   }
 
   if (this.context && e2eConfig.profile === 'demo' && e2eConfig.saveDemoSession && scenario.result?.status === Status.PASSED) {

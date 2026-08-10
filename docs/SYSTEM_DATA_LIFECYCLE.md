@@ -24,13 +24,16 @@ LOGIN_SESSION
 PROFILE_LOCATION
 DUPLICATE_REGISTRATION
 CROSS_USER_SECURITY
+REAL_WORLD_PERSONAS
 PROVIDER_FAILURE
 DEMO_READY
 ```
 
 `PROVIDER_FAILURE` is accepted only by the provider-failure profile.
 `DEMO_READY` is accepted only by the demo and full E2E profiles, and other
-states are not accepted for demo lifecycle automation. The `@framework` smoke
+states are not accepted for demo lifecycle automation. `REAL_WORLD_PERSONAS`
+is accepted by the full E2E profile and prepares seven fictional current-profile
+contracts; it does not grant live-provider or paid-AI access. The `@framework` smoke
 is deliberately stateless and does not contact system-data.
 
 ## Runtime contract

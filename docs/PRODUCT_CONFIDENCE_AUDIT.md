@@ -33,6 +33,17 @@ Date: 10 August 2026
 - There was no repeatable per-container CPU/RAM sampler, concurrent active-session workload, benchmark schema, capacity report or unit-cost evidence boundary.
 - Browser host CPU/RAM and container CPU/RAM are distinct; Docker statistics alone cannot be presented as total test-host consumption.
 - Paid/external consumption metrics are service-specific. Fixture benchmarks correctly measure paid calls as zero and cannot be used to infer live LLM/maps/provider unit cost.
+- The infrastructure E2E overlay requested fixture dataset `1.1.0` although System Data publishes `1.0.0`; the overlay is now pinned to the governed version.
+- The Job Finder gateway discarded current `employmentTypes` and `workingPatterns`; it now forwards supported contract/temporary and full-/part-time values, with an integration test. Permanent, fixed-term and apprenticeship still need an explicit downstream contract decision.
+- Postcode fixture mode did not support the current place-autocomplete operation. System Data now owns a bounded deterministic places endpoint and the Postcode gateway consumes it.
+- No paid-provider credentials were available. Therefore real provider and live OpenAI validation are recorded as outstanding, with exact paid spend of GBP 0.00 / USD 0.00 rather than inferred success.
+
+## Real-world expansion
+
+- `real-world-personas-v1` is a governed named state with seven machine-readable fictional identities and profiles spanning minimal, typical, rich, stress, uploaded-first, manual-first and career-change shapes.
+- A real browser-created DOCX fixture now follows the upload, persistence, exact immutable reference, ownership and private download path. Existing fixtures also cover valid PDF plus spoofed, corrupt, image-only, oversized, external-relationship and traversal cases.
+- [REAL_WORLD_COVERAGE_AUDIT.md](REAL_WORLD_COVERAGE_AUDIT.md) is the source for the profile field trace, persona measurements, capability matrix, provider-operation inventory, paid-call boundary and unresolved blockers.
+- The public infrastructure evidence site now exposes plain-language confidence, testing, persona, capacity, AWS, economics, validation-cost and beta-readiness pages without publishing secrets or private runtime artefacts.
 
 ## Ownership decision
 

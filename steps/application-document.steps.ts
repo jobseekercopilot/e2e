@@ -49,6 +49,11 @@ When(/^(?:the user|the owner) chooses (Generate|Upload|Not now) for the CV and (
     await journey(this).chooseDocuments(this.applicationDocumentChoices);
   });
 
+When('the user uploads a valid DOCX CV and skips the cover letter', async function (this: JobSeekerWorld) {
+  this.applicationDocumentChoices = { CV: 'UPLOAD', COVER_LETTER: 'OMIT' };
+  await journey(this).chooseSafeDocxForCv();
+});
+
 Then('the selected application uploads complete', async function (this: JobSeekerWorld) {
   await journey(this).completeUploads(selected(this, 'UPLOAD'));
 });

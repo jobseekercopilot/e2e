@@ -7,6 +7,7 @@ export const NAMED_STATES = [
   'PROFILE_LOCATION',
   'DUPLICATE_REGISTRATION',
   'CROSS_USER_SECURITY',
+  'REAL_WORLD_PERSONAS',
   'PROVIDER_FAILURE',
   'DEMO_READY'
 ] as const;
@@ -127,8 +128,10 @@ export function requireLifecycleConfig(
   if (environment.profile !== 'provider-failure' && state === 'PROVIDER_FAILURE') {
     throw new Error('PROVIDER_FAILURE is restricted to the provider-failure profile.');
   }
-  if (environment.profile === 'demo' && state !== 'DEMO_READY') {
-    throw new Error('Demo lifecycle automation may request only the DEMO_READY named state.');
+  if (environment.profile === 'demo'
+    && state !== 'DEMO_READY'
+    && state !== 'REGISTRATION_CLEAN') {
+    throw new Error('Demo lifecycle automation may request only DEMO_READY or REGISTRATION_CLEAN.');
   }
   if (!['demo', 'e2e'].includes(environment.profile) && state === 'DEMO_READY') {
     throw new Error('DEMO_READY is restricted to the demo and e2e profiles.');
