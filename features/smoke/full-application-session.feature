@@ -33,3 +33,6 @@ Feature: Full application session and profile smoke
     And he opens the job search workspace
     Then NHS and apprenticeship vacancies should be visible
     And apprenticeship training and location details should be preserved
+    When he starts both specialist vacancies as applications
+    And he opens the application tracker
+    Then both specialist applications should be visible

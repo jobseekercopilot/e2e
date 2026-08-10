@@ -81,6 +81,33 @@ export class JobSearchPage extends BasePage {
     );
   }
 
+  async startSpecialistApplications(): Promise<void> {
+    await this.startSpecialistApplication('Software Developer Apprentice', {
+      provider: 'APPRENTICESHIPS',
+      externalJobId: 'VAC1000001',
+      listingUrl: 'https://www.findapprenticeship.service.gov.uk/apprenticeship/VAC1000001',
+      applyUrl: 'https://www.findapprenticeship.service.gov.uk/apprenticeship/VAC1000001',
+      attributionLabel: 'Vacancy source: Find an apprenticeship'
+    });
+
+    const workspace = this.byTestId('job-results-workspace');
+    const nhsFilter = workspace.getByRole('button', { name: /^NHS Jobs \(1\)$/ });
+    if (!(await nhsFilter.isVisible().catch(() => false))) {
+      await workspace.getByRole('button', { name: /^Filter/ }).click();
+    }
+    await nhsFilter.click();
+
+    await this.startSpecialistApplication('Community Staff Nurse', {
+      provider: 'NHS_JOBS',
+      externalJobId: 'nhs-fixture-1',
+      listingUrl: 'https://www.jobs.nhs.uk/candidate/jobadvert/NHS-FIXTURE-1',
+      attributionLabel: 'Vacancy source: NHS Jobs',
+      attributionSourceUrl: 'https://www.jobs.nhs.uk/',
+      licenceUrl: 'https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/',
+      disclaimer: 'NHS Jobs does not endorse Job Seeker Copilot.'
+    });
+  }
+
   async openFirstRelevantJob(): Promise<void> {
     await this.waitForResults();
     const selectedJob = await this.curatedJobCard();
@@ -136,5 +163,41 @@ export class JobSearchPage extends BasePage {
     }
     if (visible.length === 0) return undefined;
     return visible[Math.min(preferredIndex, visible.length - 1)];
+  }
+
+  private async startSpecialistApplication(
+    title: string,
+    expectedSource: Record<string, string>
+  ): Promise<void> {
+    const card = this.byTestId('job-results-workspace')
+      .getByTestId('job-result-card')
+      .filter({ hasText: title });
+    await expect(card).toBeVisible();
+    const start = card.getByTestId('track-application-button');
+    if (!(await start.isVisible().catch(() => false))) {
+      await card.getByRole('button', { name: /toggle job details/i }).click();
+    }
+    await expect(start).toBeEnabled();
+
+    const responsePromise = this.page.waitForResponse(response =>
+      response.request().method() === 'POST'
+      && new URL(response.url()).pathname === '/api/jobs/applications'
+    );
+    await start.click();
+    const response = await responsePromise;
+    if (!response.ok()) {
+      throw new Error(`Starting ${title} failed with HTTP ${response.status()}.`);
+    }
+    expect(response.request().postDataJSON()).toMatchObject(expectedSource);
+    expect(await response.json()).toMatchObject({
+      provider: expectedSource['provider'],
+      externalJobId: expectedSource['externalJobId'],
+      jobTitle: title,
+      status: 'SAVED'
+    });
+    await expect(card.getByText('Saved to applications', { exact: true })).toBeVisible();
+    const choices = card.getByTestId('application-document-choice');
+    await expect(choices).toBeVisible();
+    await choices.getByRole('button', { name: 'Close document choices' }).click();
   }
 }

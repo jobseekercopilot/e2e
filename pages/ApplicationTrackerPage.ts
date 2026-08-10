@@ -36,6 +36,15 @@ export class ApplicationTrackerPage extends BasePage {
     await this.clearSpotlight();
   }
 
+  async expectSpecialistApplications(): Promise<void> {
+    await expect(
+      this.applicationCardFor('Community Staff Nurse', 'Example NHS Foundation Trust')
+    ).toBeVisible({ timeout: 20_000 });
+    await expect(
+      this.applicationCardFor('Software Developer Apprentice', 'Example Digital Ltd')
+    ).toBeVisible({ timeout: 20_000 });
+  }
+
   async changeFirstApplicationStatus(status: 'Applied' | 'Interview' | 'Offer'): Promise<void> {
     await (status === 'Offer'
       ? this.moveInterviewApplicationToOffer()
