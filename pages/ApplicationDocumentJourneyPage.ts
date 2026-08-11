@@ -536,7 +536,11 @@ export class ApplicationDocumentJourneyPage {
       const action = card.getByTestId(
         entryPoint === 'ADD' ? 'track-application-button' : 'generate-documents-button'
       );
-      if (await action.isVisible().catch(() => false)) return card;
+      const actionBecameVisible = await action
+        .waitFor({ state: 'visible', timeout: 3_000 })
+        .then(() => true)
+        .catch(() => false);
+      if (actionBecameVisible) return card;
       if ((await toggle.getAttribute('aria-expanded')) === 'true') await toggle.click();
     }
     throw new Error(`The fixture job search returned no ${entryPoint.toLowerCase()} application candidate.`);
