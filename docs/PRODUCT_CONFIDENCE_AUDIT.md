@@ -36,7 +36,8 @@ Date: 10 August 2026
 - The infrastructure E2E overlay requested fixture dataset `1.1.0` although System Data publishes `1.0.0`; the overlay is now pinned to the governed version.
 - The Job Finder gateway discarded current `employmentTypes` and `workingPatterns`; it now forwards supported contract/temporary and full-/part-time values, with an integration test. Permanent, fixed-term and apprenticeship still need an explicit downstream contract decision.
 - Postcode fixture mode did not support the current place-autocomplete operation. System Data now owns a bounded deterministic places endpoint and the Postcode gateway consumes it.
-- No paid-provider credentials were available. Therefore real provider and live OpenAI validation are recorded as outstanding, with exact paid spend of GBP 0.00 / USD 0.00 rather than inferred success.
+- Bounded live validation used the ignored credentials after explicit user confirmation. Six OpenAI samples used 9,325 tokens for $0.009377 calculated spend; Reed, Adzuna and JSearch consumed six search requests through quarantined acquisition with $0.00 observable incremental charge. Full outputs remain private and no live payload was promoted into fixtures.
+- A focused document browser run passed 5/7 scenarios. Schema-v4 fixture and selected-output projection defects were corrected and the backend now completes generation, polling and approval, but the UI still fails to expose the expected completion state within 120 seconds. This remains a promotional and beta-readiness gate.
 
 ## Real-world expansion
 

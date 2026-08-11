@@ -19,11 +19,9 @@ Public-beta blockers/gates:
 1. The retained 25-session workload completed 0/25 journeys at the job-details
    path; 10/10 is the highest successful point.
 2. Four pricing/wallet route 404s were observed per measured session.
-3. The required six-case paid LLM grounding/latency/cost sample has not run;
-   no provider credentials were available to this workspace process.
-4. CV-to-profile extraction/import must either be implemented and validated or
+3. CV-to-profile extraction/import must either be implemented and validated or
    excluded explicitly from product and promotional claims.
-5. The calculated AWS candidate has not been benchmarked on AWS.
+4. The calculated AWS candidate has not been benchmarked on AWS.
 
 No single readiness percentage is reported.
 
@@ -213,8 +211,21 @@ not contain real malicious payloads.
 
 ## Provider evidence
 
-No authenticated live provider calls were made in this pass because provider
-credentials were unavailable. Current official documentation was reviewed:
+Reed, Adzuna and JSearch were each called twice through the guarded,
+quarantined acquisition path: once in a run whose final host-volume write
+failed after generation and once in the successful retained run. This consumed
+six search requests in total. The successful run completed in 9,129 ms, with
+raw counts Adzuna 0, JSearch 10 and Reed 3; normalisation retained four records
+(three JSearch, one Reed), rejected eight invalid records and warned that the
+sample was below target diversity. No per-request charge was exposed by the
+accounts; observable incremental provider spend was $0.00.
+
+The live records confirm provider diversity that fixtures must preserve:
+JSearch returned `Contractor` and typographic `Full–time`, explicit HYBRID or
+ONSITE markers, descriptions from 570 to 3,400 characters, and no salary or
+postcode in the retained sample. Reed retained annual salary but omitted
+employment/contract type and postcode. Adzuna legitimately returned an empty
+result for the bounded query. Current official documentation was also reviewed:
 
 - Reed documents search pagination using `resultsToTake/resultsToSkip`, nullable
   salary when hidden, and a separate job-detail operation:
@@ -225,8 +236,10 @@ credentials were unavailable. Current official documentation was reviewed:
 - JSearch remains a RapidAPI-mediated provider with plan/rate semantics; its
   deterministic adapter must not be treated as equivalent to Reed/Adzuna.
 
-The synthetic dataset retains provider identity and three provider-specific
-records each. It should not be described as a live sample dated 2026-08-10.
+The live acquisition is `PENDING_PROVENANCE_REVIEW`, runtime-ineligible and not
+redistribution-approved. Its private evidence is retained until 24 August 2026
+under `system-data-service/quarantined-acquisitions/confidence-2026-08-11-003/`.
+No live payload was copied into the governed synthetic dataset.
 
 ## LLM evidence
 
@@ -234,16 +247,23 @@ Deterministic generation is grounded by selected evidence facts and a claim
 ledger. Prior focused tests protect separate CV/cover-letter purpose selection
 and reject ungrounded combined-fixture assumptions.
 
-The required live cases (rich, typical, minimal, career changer, uploaded CV,
-and long stress input) were **not executed**: no `OPENAI_API_KEY` was present in
-the environment or approved local env files. Therefore hallucination rate,
-live latency and live token distributions remain unknown. Exact paid spend is
-**$0.00**, recorded in
-`infrastructure/docs/real-world-validation-costs-2026-08-10.md`.
+All six required cases ran through the real `llm-gateway` v2 boundary using
+`gpt-4.1-mini-2025-04-14`, strict JSON output, `store=false`, one concurrent
+call and synthetic personas. Provider-reported usage was 4,622 input plus 4,703
+output tokens (9,325 total). Latency was 6,349–13,466 ms, with a 9,461 ms mean.
+At the dated $0.40/million input and $1.60/million output rates, the gateway
+calculated **$0.009377** total cost.
 
-The dated official GPT-4.1 mini rate remains $0.40/million input and
-$1.60/million output tokens. The 2,100/1,600-token fixture shape calculates to
-$0.00340 for a combined generation; that is calculated, not a live bill.
+The career-change and sparse outputs did not invent employment or
+qualifications and openly acknowledged missing relevant experience. However,
+the rich/stress outputs inserted `John Doe` and a fictional email despite the
+prompt's facts-only rule, the minimal CV added “References available upon
+request”, and the stress letter described “inclusive leadership” more strongly
+than the source evidence supports. These are grounding/presentation defects:
+placeholders must be supplied outside generation or omitted, and generated
+claims still require claim-ledger validation before promotion. Full private
+synthetic outputs remain at
+`/tmp/jsc-live-llm-validation-2026-08-11.json` and are not committed.
 
 ## Documents, tracking and reporting
 
@@ -254,6 +274,19 @@ $0.00340 for a combined generation; that is calculated, not a live bill.
   `UNSUCCESSFUL`, `OFFER`, `ACCEPTED`, `REJECTED_BY_USER`, and `WITHDRAWN`.
 - Application-document choices preserve exact active versions rather than
   silently selecting any CV.
+- A focused full-stack run passed 5/7 document-selection/tracking scenarios and
+  56/65 steps. Both fixture-generation scenarios exceeded the 120-second
+  browser deadline; upload, DOCX, tracking persistence and reporting-boundary
+  scenarios passed.
+- Diagnosis found two layers. The combined System Data document fixture had
+  drifted behind output-schema v4, and the fixture LLM adapter did not project
+  combined output and claims into the selected CV or cover-letter schema. Those
+  defects are fixed locally with owner tests. Targeted runtime reruns now show
+  selected CV and cover-letter drafts accepted with HTTP 200, followed by
+  document-operation HTTP 202, successful polling and approval HTTP 200.
+  Nevertheless, the browser still does not observe the expected job-card/toast
+  completion state before 120 seconds. The remaining failure is therefore a
+  client/integration-state defect, not generation-service latency.
 - Reporting requests are asserted content-free, private/no-store and derived
   from application/activity records. Empty, one/several and rich-history data
   levels still need one consolidated reconciliation result table.
@@ -271,10 +304,33 @@ $0.00340 for a combined generation; that is calculated, not a live bill.
 | Persona contract drift | Several completed qualifications omitted the service-required grade | Found by full-stack prepare; fixed and 7/7 verified |
 | Operator tooling drift | Reset helper incorrectly expected a populated-state verify to pass after deletion | Fixed; reset now trusts its bounded deletion result |
 | Runtime/source drift | Cached Document Generation JAR exposed 2.6 upload APIs while its checked-out source branch predated them; Document Store source branch also predated its merged upload API | Switched both to current integrated source, rebuilt runtime artifacts, and reran DOCX to PASS |
+| Acquisition build drift | JSearch Docker verification omitted the documentation required by its credential-policy test | Fixed by copying `docs/` into the build stage; 29 tests passed in the corrected image build |
+| Acquisition ownership drift | The host-owned mode-0700 quarantine directory was unwritable by container UID 10001 | Fixed by running only the one-shot writer as the invoking host UID/GID; retained acquisition completed and teardown passed |
+| Fixture/schema drift | Combined document fixture and adapter returned output/claims invalid for selected schema v4 | Fixed; System Data and LLM owner tests pass, and targeted runtime generation/approval returns successful HTTP responses |
 | Significant/product gap | CV-to-profile extraction/import not found | Open; do not imply capability |
 | Public-beta performance blocker | 0/25 DISCOVER journeys passed | Open |
 | Significant defect | four pricing/wallet 404s per measured session | Open |
-| Coverage gap | six paid LLM samples absent | Open; credentials unavailable |
+| Generation grounding | Live rich/stress drafts inserted placeholder identity data; the stress letter overstated inclusive-leadership evidence | Open; [cv-cover-letter-service#67](https://github.com/jobseekercopilot/cv-cover-letter-service/issues/67) tracks omission/claim-ledger enforcement before promotional reuse |
+| Significant UI/integration defect | Backend generation, polling and approval succeed, but two fixture document-generation browser scenarios still do not surface the expected completion state within 120 seconds | Open; [job-seeker-copilot-client#100](https://github.com/jobseekercopilot/job-seeker-copilot-client/issues/100) tracks job-card/toast state reconciliation before recording |
+
+## Final verification evidence
+
+| Check | Result |
+| --- | --- |
+| System Data `mvn -q test` | PASS: 86 tests, 0 failures/errors/skips |
+| LLM Gateway `mvn -q test` | PASS: 74 tests, 0 failures/errors/skips |
+| JSearch Gateway `mvn -q test` | PASS: 29 tests, 0 failures/errors/skips |
+| Acquisition authorization unit class | PASS: 6 tests |
+| E2E JavaScript syntax + TypeScript typecheck | PASS |
+| All Cucumber profile definition dry-runs | PASS: 11 profiles loaded 47 scenarios / 392 steps with no undefined definitions |
+| Infrastructure Pages `.venv-docs/bin/mkdocs build --strict -f docs-site/mkdocs.yml` | PASS |
+| System Data full-stack lifecycle | PASS: prepare twice, verify 7/7 users and profiles, reset |
+| Real DOCX full-stack browser journey | PASS: 1 scenario / 9 steps |
+| Focused document-selection/tracking browser run | PARTIAL: 5/7 scenarios; 56 passed, 7 skipped and 2 failed of 65 steps |
+| Targeted generation repair reruns | PARTIAL: CV and cover-letter draft/generation/poll/approval backend requests succeed; browser completion assertion still times out |
+| Fixture-browser capacity | BOUNDED: 10/10 passed; 0/25 passed at job details |
+| Bounded live LLM sample | COMPLETE: 6/6 calls; quality blockers recorded, $0.009377 calculated spend |
+| Bounded live provider acquisition | COMPLETE: 6 requests; retained run produced 4 quarantined records, $0.00 observable incremental spend |
 
 ## Remaining gaps
 
@@ -283,10 +339,11 @@ $0.00340 for a combined generation; that is calculated, not a live bill.
 - Retain UI-facing invalid-upload results alongside the completed real DOCX
   browser scenario.
 - Decide and document whether CV-to-profile import is in current beta scope.
-- Run the six bounded LLM samples once a credential is supplied, then update the
-  cost ledger and grounding review.
-- Run limited authenticated live provider comparisons, subject to provider
-  terms and credentials.
+- Add claim-ledger protection for identity placeholders and weakly supported
+  claims found by the six completed live LLM samples.
+- Expand provider sampling only if a future review needs more than the bounded
+  six-request evidence; do not promote the quarantined payload into fixtures
+  without provenance review.
 - Reconcile reporting totals in one retained source-record/result artifact.
 - Resolve 25-session latency and payment 404s, then rerun capacity.
 - Record the master and at least one alternative workflow only after these

@@ -32,6 +32,7 @@
     "test:support": "HEADLESS=true RECORD_VIDEO=false playwright test",
     "record": "npm run record:showcase",
     "record:showcase": "node scripts/record-product-showcase.js",
+    "validate:live-llm": "node scripts/run-live-llm-validation.js",
     "record:clip": "node scripts/record-product-showcase.js",
     "record:legacy": "REVIEW_SET=final node scripts/record-review-set.js",
     "record:all": "npm run record",
