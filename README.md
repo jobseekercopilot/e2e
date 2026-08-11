@@ -49,7 +49,8 @@ must never be committed.
 Key variables:
 
 ```text
-BASE_URL=http://localhost:4200
+E2E_BASE_URL=http://localhost:3100
+BASE_URL=http://localhost:3100
 HEADLESS=false
 SLOW_MO=150
 RECORD_VIDEO=true
@@ -274,7 +275,7 @@ python -m scripts.docker.start_stack e2e --build
 python -m scripts.demo.prepare_demo --skip-start
 ```
 
-Then record the seven final promotional chapters:
+Then record the current master showcase and seven chapters:
 
 ```bash
 JSC_WORKSPACE_ROOT=/path/to/job-seeker-copilot-parent-workspace \
@@ -295,13 +296,14 @@ equivalent controlled fixture preflight has succeeded.
 The generated MP4s are:
 
 ```text
-REGISTER.mp4
+JOB-SEEKER-COPILOT-SHOWCASE.mp4
+ONBOARDING.mp4
+PROFILE.mp4
 DISCOVER.mp4
-APPLY.mp4
-REPORT.mp4
-TRACK.mp4
-ORGANISE.mp4
-SUCCEED.mp4
+GENERATE.mp4
+DOCUMENTS.mp4
+TRACKING.mp4
+REPORTING.mp4
 ```
 
 The output folder is cleaned at the start of each recording run:
@@ -323,7 +325,14 @@ Infrastructure normally invokes this command while collecting Docker stats.
 It represents concurrent active browser sessions using one deterministic
 registered fixture identity; it is not a claim about concurrent registrations.
 
-## Journey Files
+## Current showcase journey
+
+The current recorder uses `features/showcase/PRODUCT-SHOWCASE.feature` as one
+coherent account-to-application timeline and splits clips at recorded chapter
+markers. The older independent chapter features below remain available through
+`npm run record:legacy`; they are not the output of the default `npm run record`.
+
+## Legacy journey files
 
 ```text
 features/chapters/REGISTER.feature
