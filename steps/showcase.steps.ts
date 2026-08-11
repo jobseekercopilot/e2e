@@ -24,14 +24,21 @@ When('Alex discovers the selected showcase job', async function (this: JobSeeker
   await this.productShowcasePage.openSelectedJob(this.showcaseCandidate);
 });
 
-When('Alex generates a CV and cover letter for the same showcase job', async function (this: JobSeekerWorld) {
-  if (!this.showcaseCandidate || !this.applicationDocumentJourneyPage) throw new Error('Showcase journey was not initialised.');
-  this.applicationDocumentChoices = { CV: 'GENERATE', COVER_LETTER: 'GENERATE' };
-  await this.applicationDocumentJourneyPage.startJourney('GENERATE', this.showcaseCandidate.selectedJob);
-  await this.applicationDocumentJourneyPage.chooseDocuments(this.applicationDocumentChoices);
-  await this.applicationDocumentJourneyPage.completeGeneration(['CV', 'COVER_LETTER']);
-  await this.applicationDocumentJourneyPage.assertApplication(this.applicationDocumentChoices);
-});
+When(
+  'Alex generates a CV and cover letter for the same showcase job',
+  {timeout: 12 * 60_000},
+  async function (this: JobSeekerWorld) {
+    if (!this.showcaseCandidate || !this.applicationDocumentJourneyPage) throw new Error('Showcase journey was not initialised.');
+    this.applicationDocumentChoices = { CV: 'GENERATE', COVER_LETTER: 'GENERATE' };
+    await this.applicationDocumentJourneyPage.startJourney('GENERATE', this.showcaseCandidate.selectedJob);
+    await this.applicationDocumentJourneyPage.chooseDocuments(this.applicationDocumentChoices);
+    await this.applicationDocumentJourneyPage.completeGeneration(
+      ['CV', 'COVER_LETTER'],
+      'Application Delivery Platform',
+    );
+    await this.applicationDocumentJourneyPage.assertApplication(this.applicationDocumentChoices);
+  },
+);
 
 Then('the tailored application documents are ready', async function (this: JobSeekerWorld) {
   if (!this.showcaseCandidate || !this.productShowcasePage) throw new Error('Showcase candidate was not initialised.');
@@ -66,3 +73,26 @@ Then('Alex returns to the same selected job', async function (this: JobSeekerWor
   await this.productShowcasePage.openSelectedJob(this.showcaseCandidate);
   await this.page?.waitForTimeout(this.config.demoBufferMs);
 });
+
+When('Alex signs out and signs back in', async function (this: JobSeekerWorld) {
+  if (!this.showcaseCandidate || !this.navigationPage || !this.registerPage) {
+    throw new Error('Showcase returning-user journey was not initialised.');
+  }
+  await this.navigationPage.signOutAndRejectProtectedReuse();
+  await this.registerPage.loginUser(this.showcaseCandidate);
+});
+
+Then(
+  "Alex's profile, documents, application and reporting state persist",
+  async function (this: JobSeekerWorld) {
+    if (!this.showcaseCandidate || !this.productShowcasePage || !this.documentsPage
+      || !this.applicationTrackerPage || !this.reportingReconciliationPage) {
+      throw new Error('Showcase returning-user assertions were not initialised.');
+    }
+    const {title, company} = this.showcaseCandidate.selectedJob;
+    await this.productShowcasePage.expectProfessionalProfilePersisted(this.showcaseCandidate);
+    await this.documentsPage.expectShowcaseDocumentsPersisted(title, company);
+    await this.applicationTrackerPage.expectShowcaseApplicationPersisted(title, company, 'interview');
+    await this.reportingReconciliationPage.reconcile(1);
+  },
+);

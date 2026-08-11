@@ -13,6 +13,7 @@ import { NavigationPage } from '../pages/NavigationPage';
 import { RegisterPage } from '../pages/RegisterPage';
 import { PasswordRecoveryPage } from '../pages/PasswordRecoveryPage';
 import { ProductShowcasePage } from '../pages/ProductShowcasePage';
+import { ReportingReconciliationPage } from '../pages/ReportingReconciliationPage';
 import { StabilisationPage } from '../pages/StabilisationPage';
 import { e2eConfig } from './config';
 import { createRunId } from './synthetic-data';
@@ -87,6 +88,7 @@ export class JobSeekerWorld extends World {
   aiCreditPage?: AiCreditPage;
   passwordRecoveryPage?: PasswordRecoveryPage;
   productShowcasePage?: ProductShowcasePage;
+  reportingReconciliationPage?: ReportingReconciliationPage;
   stabilisationPage?: StabilisationPage;
   applicationDocumentJourneyPage?: ApplicationDocumentJourneyPage;
   applicationDocumentChoices?: Record<DocumentPurpose, DocumentChoice>;
@@ -111,6 +113,7 @@ export class JobSeekerWorld extends World {
     this.applicationDocumentJourneyPage = new ApplicationDocumentJourneyPage(page, this.config.baseUrl);
     this.passwordRecoveryPage = new PasswordRecoveryPage(page, this.config.baseUrl);
     this.productShowcasePage = new ProductShowcasePage(page);
+    this.reportingReconciliationPage = new ReportingReconciliationPage(page);
     this.stabilisationPage = new StabilisationPage(
       page,
       this.config.baseUrl,

@@ -117,6 +117,16 @@ export class DocumentsPage extends BasePage {
     return saved;
   }
 
+  async expectShowcaseDocumentsPersisted(title: string, company: string): Promise<void> {
+    await this.open();
+    const families = this.byTestId('document-family-card')
+      .filter({hasText: title})
+      .filter({hasText: company});
+    await expect(families).toHaveCount(2, {timeout: 30_000});
+    await expect(families.filter({hasText: 'CV'}).first()).toBeVisible();
+    await expect(families.filter({hasText: 'Cover letter'}).first()).toBeVisible();
+  }
+
   private async downloadExpandedDocument(filename: string): Promise<SavedDemoDownload> {
     const expanded = this.page.locator('.document-card-expanded').first();
     const pdf = expanded.getByRole('button', { name: /Download PDF/i }).first();

@@ -34,7 +34,10 @@ const commonEnvironment = {
   HEADLESS: process.env.HEADLESS || 'true',
   RECORD_VIDEO: 'false',
   ALLOW_REAL_PROVIDER_E2E: 'false',
-  ALLOW_AI_GENERATION: 'false'
+  ALLOW_AI_GENERATION: 'false',
+  ACCOUNT_EMAIL_E2E_MODE: process.env.ACCOUNT_EMAIL_E2E_MODE || 'fixture',
+  AUTHENTICATION_FIXTURE_URL:
+    process.env.AUTHENTICATION_FIXTURE_URL || 'http://127.0.0.1:9104'
 };
 const runs = suite === 'critical'
   ? [

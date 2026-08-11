@@ -54,6 +54,31 @@ When('the user uploads a valid DOCX CV and skips the cover letter', async functi
   await journey(this).chooseSafeDocxForCv();
 });
 
+When('the user uploads the {word} CV fixture and skips the cover letter', async function (
+  this: JobSeekerWorld,
+  fixtureName: string
+) {
+  this.applicationDocumentChoices = { CV: 'UPLOAD', COVER_LETTER: 'OMIT' };
+  await journey(this).chooseNamedCvFixture(fixtureName);
+});
+
+Then('the browser rejects the {word} CV fixture before upload', async function (
+  this: JobSeekerWorld,
+  fixtureName: string
+) {
+  await journey(this).assertCvFixtureRejectedByBrowser(fixtureName);
+});
+
+Then('the CV upload is safely rejected without changing the application', async function (
+  this: JobSeekerWorld
+) {
+  await journey(this).assertCvUploadSafelyRejected();
+});
+
+Then('the user can recover with a valid replacement CV', async function (this: JobSeekerWorld) {
+  await journey(this).recoverRejectedCvWithSafeDocx();
+});
+
 Then('the selected application uploads complete', async function (this: JobSeekerWorld) {
   await journey(this).completeUploads(selected(this, 'UPLOAD'));
 });

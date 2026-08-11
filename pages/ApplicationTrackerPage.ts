@@ -55,8 +55,69 @@ export class ApplicationTrackerPage extends BasePage {
 
     const documents = card.getByTestId('application-documents');
     await this.clickFramed(documents.locator('summary'));
-    await expect(documents.getByText(/CV.*Version|CV and cover letter|exact document versions/i).first())
-      .toBeVisible({ timeout: 30_000 });
+    const selections = documents.locator('select');
+    await expect(selections).toHaveCount(2, {timeout: 30_000});
+    const selectedDocumentIds: string[] = [];
+    for (let index = 0; index < 2; index += 1) {
+      const selection = selections.nth(index);
+      const approvedVersion = selection.locator('option:not([value=""])').first();
+      await expect(approvedVersion).toBeAttached({timeout: 30_000});
+      const documentId = await approvedVersion.getAttribute('value');
+      expect(documentId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      );
+      await selection.selectOption(documentId!);
+      selectedDocumentIds.push(documentId!);
+      await expect(selection).toHaveValue(documentId!);
+      await expect(selection.locator('option:checked')).toContainText(/Version 1/);
+    }
+    const saveSelections = documents.getByRole('button', {
+      name: 'Save document selections',
+      exact: true,
+    });
+    await expect(saveSelections).toBeEnabled();
+    const saveCompleted = this.page.waitForResponse(response =>
+      response.request().method() === 'PUT'
+      && response.url().includes('/document-selections')
+      && response.ok(),
+      {timeout: 30_000}
+    );
+    await saveSelections.click();
+    await saveCompleted;
+    const authoritativeApplications = this.page.waitForResponse(response =>
+      response.request().method() === 'GET'
+      && response.url().includes('/api/jobs/applications')
+      && response.ok(),
+      {timeout: 30_000}
+    );
+    await this.open();
+    const applicationList = await authoritativeApplications;
+    const records = await applicationList.json() as Array<{
+      jobTitle?: string;
+      companyName?: string;
+      cvDocumentId?: string;
+      coverLetterDocumentId?: string;
+      cvDocumentReference?: {documentId?: string};
+      coverLetterDocumentReference?: {documentId?: string};
+    }>;
+    const authoritativeRecord = records.find(record =>
+      record.jobTitle === title && record.companyName === company
+    );
+    expect(authoritativeRecord?.cvDocumentReference?.documentId
+      ?? authoritativeRecord?.cvDocumentId).toBe(selectedDocumentIds[0]);
+    expect(authoritativeRecord?.coverLetterDocumentReference?.documentId
+      ?? authoritativeRecord?.coverLetterDocumentId).toBe(selectedDocumentIds[1]);
+    const authoritativeCard = this.applicationCardFor(title, company);
+    await expect(authoritativeCard).toBeVisible({timeout: 30_000});
+    const authoritativeDocuments = authoritativeCard.getByTestId('application-documents');
+    await this.clickFramed(authoritativeDocuments.locator('summary'));
+    const authoritativeSelections = authoritativeDocuments.locator('select');
+    await expect(authoritativeSelections).toHaveCount(2, {timeout: 30_000});
+    for (let index = 0; index < 2; index += 1) {
+      await expect(authoritativeSelections.nth(index)).not.toHaveValue('');
+      await expect(authoritativeSelections.nth(index).locator('option:checked'))
+        .toContainText(/Version 1/);
+    }
     await this.pauseAfterFeature();
     await this.clearSpotlight();
 
@@ -64,6 +125,14 @@ export class ApplicationTrackerPage extends BasePage {
     await this.updateSpecificApplicationStatus(title, company, 'Mark Interview', 'interview');
 
     card = this.applicationCardFor(title, company);
+    const frozenDocuments = card.getByTestId('application-documents');
+    if (!(await frozenDocuments.getAttribute('open'))) {
+      await this.clickFramed(frozenDocuments.locator('summary'));
+    }
+    await expect(frozenDocuments.getByText('CV used · Version 1', {exact: true}))
+      .toBeVisible({timeout: 30_000});
+    await expect(frozenDocuments.getByText('Cover letter used · Version 1', {exact: true}))
+      .toBeVisible({timeout: 30_000});
     await this.intentionalScrollNearCenter(card);
     await this.spotlight(card);
     await expect(card.locator('.status-interview')).toBeVisible();
@@ -76,6 +145,25 @@ export class ApplicationTrackerPage extends BasePage {
     }
     await this.pauseAfterFeature();
     await this.clearSpotlight();
+  }
+
+  async expectShowcaseApplicationPersisted(
+    title: string,
+    company: string,
+    status: 'interview' | 'offer'
+  ): Promise<void> {
+    await this.open();
+    const card = this.applicationCardFor(title, company);
+    await expect(card).toBeVisible({timeout: 30_000});
+    await expect(card.locator(`.status-${status}`)).toBeVisible();
+    const documents = card.getByTestId('application-documents');
+    if (!(await documents.getAttribute('open'))) {
+      await this.clickFramed(documents.locator('summary'));
+    }
+    await expect(documents.getByText('CV used · Version 1', {exact: true}))
+      .toBeVisible({timeout: 30_000});
+    await expect(documents.getByText('Cover letter used · Version 1', {exact: true}))
+      .toBeVisible({timeout: 30_000});
   }
 
   async changeFirstApplicationStatus(status: 'Applied' | 'Interview' | 'Offer'): Promise<void> {
@@ -166,7 +254,17 @@ export class ApplicationTrackerPage extends BasePage {
       `Application action ${actionName} is missing for ${title} at ${company}.`
     ).toBeVisible();
 
+    const statusResponse = this.page.waitForResponse(response =>
+      response.request().method() === 'PATCH'
+      && /\/api\/jobs\/applications\/[^/]+\/status$/.test(new URL(response.url()).pathname),
+      { timeout: 20_000 }
+    );
     await this.clickFramed(action);
+    const response = await statusResponse;
+    expect(
+      response.ok(),
+      `Application status ${completedStatus} failed with HTTP ${response.status()}.`
+    ).toBeTruthy();
     const updatedCard = this.applicationCardFor(title, company);
     await expect(updatedCard.locator(`.status-${completedStatus}`).first()).toBeVisible({ timeout: 20_000 });
     await this.spotlight(updatedCard);

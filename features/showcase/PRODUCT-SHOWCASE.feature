@@ -29,4 +29,8 @@ Feature: Job Seeker Copilot product showcase
 
     When the showcase chapter "CONNECTED_WORKFLOW" begins
     Then Alex returns to the same selected job
+
+    When the showcase chapter "RETURNING_USER" begins
+    And Alex signs out and signs back in
+    Then Alex's profile, documents, application and reporting state persist
     And the showcase chapter "END" begins

@@ -25,12 +25,35 @@ export class ProductShowcasePage extends BasePage {
     await expect(profile).toContainText(candidate.targetRoles[0]);
     await expect(profile).toContainText(`${candidate.noticePeriodDays} days' notice`);
     const summary = profile.getByTestId('profile-evidence-summary');
-    await expect(summary).toContainText('2 confirmed');
-    await expect(summary).toContainText('1 confirmed');
+    await this.expectEvidenceSummary(summary);
     await this.intentionalScrollNearCenter(summary);
     await this.spotlight(summary);
     await this.pauseAfterFeature();
     await this.clearSpotlight();
+  }
+
+  async expectProfessionalProfilePersisted(candidate: ShowcaseCandidate): Promise<void> {
+    await this.page.goto('/dashboard');
+    const profile = this.page.locator('app-claimant-profile');
+    await expect(profile).toBeVisible({timeout: 30_000});
+    await expect(profile).toContainText(candidate.skills[0]);
+    await expect(profile).toContainText(candidate.targetRoles[0]);
+    await expect(profile).toContainText(`${candidate.noticePeriodDays} days' notice`);
+    const summary = profile.getByTestId('profile-evidence-summary');
+    await this.expectEvidenceSummary(summary);
+  }
+
+  private async expectEvidenceSummary(summary: Locator): Promise<void> {
+    const row = (label: string) => summary.locator('.evidence-summary-row').filter({hasText: label});
+    await this.expectConfirmedAtLeast(row('Work experience'), 'Work experience', 2);
+    await this.expectConfirmedAtLeast(row('Qualifications'), 'Qualifications', 2);
+    await this.expectConfirmedAtLeast(row('Projects and achievements'), 'Projects and achievements', 1);
+  }
+
+  private async expectConfirmedAtLeast(row: Locator, label: string, minimum: number): Promise<void> {
+    await expect(row).toBeVisible();
+    const count = Number((await row.textContent())?.match(/(\d+) confirmed/)?.[1] ?? -1);
+    expect(count, `${label} must retain at least ${minimum} confirmed entries`).toBeGreaterThanOrEqual(minimum);
   }
 
   async openSelectedJob(candidate: ShowcaseCandidate): Promise<void> {
@@ -77,7 +100,8 @@ export class ProductShowcasePage extends BasePage {
   async showMeaningfulReporting(): Promise<void> {
     await this.page.goto('/dashboard');
     const reporting = this.page.getByTestId('reporting-panel')
-      .or(this.page.locator('app-reporting-panel'));
+      .or(this.page.locator('app-reporting-panel'))
+      .first();
     await expect(reporting).toBeVisible({ timeout: 30_000 });
     await expect(reporting.getByRole('heading', { name: 'Your job search progress' })).toBeVisible();
     await expect(reporting.getByText('Applications', { exact: true }).first()).toBeVisible();

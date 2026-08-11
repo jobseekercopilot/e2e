@@ -29,6 +29,41 @@ Feature: Uploaded and generated documents remain explicit application choices
     And the application document credit and content boundary is correct
     And the uploaded application document download is private and safe
 
+  @state:CROSS_USER_SECURITY
+  Scenario: Upload a substantial two-page PDF as the application CV
+    When the user starts the Add application document journey
+    And the user uploads the substantialMultiPagePdf CV fixture and skips the cover letter
+    Then the selected application uploads complete
+    And the saved application contains the exact selected document references
+    And the application document credit and content boundary is correct
+    And the uploaded application document download is private and safe
+
+  @state:CROSS_USER_SECURITY
+  Scenario Outline: Reject impossible CV files in the browser before sending bytes
+    When the user starts the Add application document journey
+    Then the browser rejects the <fixture> CV fixture before upload
+
+    Examples:
+      | fixture        |
+      | unsupportedText |
+      | emptyPdf        |
+      | oversizedPdf    |
+
+  @state:CROSS_USER_SECURITY
+  Scenario Outline: Reject unsafe CV content and recover with a replacement
+    When the user starts the Add application document journey
+    And the user uploads the <fixture> CV fixture and skips the cover letter
+    Then the CV upload is safely rejected without changing the application
+    And the user can recover with a valid replacement CV
+
+    Examples:
+      | fixture                 |
+      | malformedPdf             |
+      | spoofedDocx              |
+      | mismatchedPdf            |
+      | externalRelationshipDocx |
+      | traversalDocx            |
+
   @state:DEMO_READY @critical-smoke
   Scenario: Generate both explicitly selected application documents
     When the user starts the Generate application document journey

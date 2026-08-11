@@ -7,11 +7,16 @@ export class JobDetailsPage extends BasePage {
   }
 
   async waitForDetails(): Promise<void> {
-    // TODO frontend: add data-testid="job-details-panel".
+    const expandedCard = this.byTestId('job-result-card').filter({
+      has: this.page.getByRole('button', {
+        name: /toggle job details/i,
+        expanded: true
+      })
+    }).first();
+    await expect(expandedCard).toBeVisible();
     await expect(
-      this.byTestId('job-details-panel')
-        .or(this.page.getByRole('heading', { name: /job description/i }))
-        .or(this.page.getByText(/Job Description|View on|Generate CV/i))
+      expandedCard
+        .getByText(/Job Description|View on|Generate CV|Generate Application/i)
         .first()
     ).toBeVisible();
     await this.pauseBeforeFeature();

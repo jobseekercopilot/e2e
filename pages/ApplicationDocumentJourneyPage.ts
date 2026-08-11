@@ -255,6 +255,66 @@ export class ApplicationDocumentJourneyPage {
       .click();
   }
 
+  async chooseNamedCvFixture(fixtureName: string): Promise<void> {
+    const fixture = this.fixture(fixtureName);
+    await this.choose('CV', 'UPLOAD', fixture);
+    await this.choose('COVER_LETTER', 'OMIT', applicationDocumentFixtures().coverPdf);
+    await this.page.getByTestId('application-document-choice')
+      .getByRole('button', { name: 'Continue', exact: true })
+      .click();
+  }
+
+  async assertCvFixtureRejectedByBrowser(fixtureName: string): Promise<void> {
+    const fixture = this.fixture(fixtureName);
+    const commandsBefore = this.uploadResponses.filter(response =>
+      response.request().method() === 'POST').length;
+    await this.choose('CV', 'UPLOAD', fixture);
+    await this.choose('COVER_LETTER', 'OMIT', applicationDocumentFixtures().coverPdf);
+    const selector = this.page.getByTestId('application-document-choice');
+    await expect(selector.getByRole('alert')).toHaveText(
+      'Choose a non-empty PDF or Microsoft Word .docx file no larger than 10 MiB.'
+    );
+    await expect(selector.getByRole('button', { name: 'Continue', exact: true })).toBeDisabled();
+    expect(this.uploadResponses.filter(response => response.request().method() === 'POST'))
+      .toHaveLength(commandsBefore);
+    const application = await this.currentApplication();
+    expect(application.cvDocumentReference ?? null).toBeNull();
+  }
+
+  async assertCvUploadSafelyRejected(): Promise<void> {
+    const card = this.selectedJobCard();
+    const message = card.getByText(
+      'The uploaded document did not pass secure processing.',
+      { exact: true }
+    );
+    await expect(message).toBeVisible({ timeout: 90_000 });
+    await Promise.all(this.pendingResponseReads);
+    const rejected = [...this.uploadPayloads].reverse().find(payload =>
+      payload.applicationId === this.requireApplicationId()
+      && payload.documentType === 'CV'
+      && payload.state === 'REJECTED');
+    expect(rejected, 'The hostile upload must reach a terminal rejected operation.').toBeTruthy();
+    expect(rejected?.documentId).toBeUndefined();
+    const application = await this.currentApplication();
+    expect(application.cvDocumentReference ?? null).toBeNull();
+    const status = card.getByRole('article').filter({ hasText: 'The uploaded document did not pass secure processing.' });
+    await expect(status.getByRole('button', { name: 'Retry', exact: true })).toHaveCount(0);
+    await expect(status.getByRole('button', { name: 'Choose another file', exact: true })).toBeVisible();
+    await expect(status.getByRole('button', { name: 'Skip', exact: true })).toBeVisible();
+    const visibleText = await status.innerText();
+    expect(visibleText).not.toMatch(/(?:Exception|stack trace|\bat\s+[\w.$]+\([^)]*:\d+\))/i);
+  }
+
+  async recoverRejectedCvWithSafeDocx(): Promise<void> {
+    const card = this.selectedJobCard();
+    const status = card.getByRole('article').filter({ hasText: 'The uploaded document did not pass secure processing.' });
+    await status.getByRole('button', { name: 'Choose another file', exact: true }).click();
+    await expect(this.page.getByTestId('application-document-choice')).toBeVisible();
+    await this.chooseSafeDocxForCv();
+    await this.completeUploads(['CV']);
+    await this.assertApplication({CV: 'UPLOAD', COVER_LETTER: 'OMIT'});
+  }
+
   async completeUploads(expectedPurposes: DocumentPurpose[]): Promise<void> {
     for (const purpose of expectedPurposes) {
       const label = purpose === 'CV' ? 'CV' : 'Cover letter';
@@ -273,7 +333,10 @@ export class ApplicationDocumentJourneyPage {
     }
   }
 
-  async completeGeneration(expectedPurposes: DocumentPurpose[]): Promise<void> {
+  async completeGeneration(
+    expectedPurposes: DocumentPurpose[],
+    preferredEvidenceTitle = GENERATION_EVIDENCE_TITLE
+  ): Promise<void> {
     const selector = this.page.getByTestId('generation-evidence-selector');
     await expect(selector).toBeVisible({ timeout: 30_000 });
     const advert = selector.locator('textarea').first();
@@ -288,11 +351,13 @@ export class ApplicationDocumentJourneyPage {
     const purposePanels = selector.locator('.purpose-panel');
     await expect(purposePanels).toHaveCount(expectedPurposes.length);
     for (let index = 0; index < expectedPurposes.length; index += 1) {
-      const projectEvidence = purposePanels.nth(index)
-        .locator('label.evidence-choice')
-        .filter({ hasText: GENERATION_EVIDENCE_TITLE });
-      await expect(projectEvidence).toBeVisible();
-      await projectEvidence.locator('input[type="checkbox"]').check();
+      const evidenceChoices = purposePanels.nth(index).locator('label.evidence-choice');
+      await expect(evidenceChoices.first()).toBeVisible();
+      const preferredEvidence = evidenceChoices.filter({hasText: preferredEvidenceTitle});
+      const selectedEvidence = await preferredEvidence.count() > 0
+        ? preferredEvidence.first()
+        : evidenceChoices.first();
+      await selectedEvidence.locator('input[type="checkbox"]').check();
     }
 
     const startsBefore = this.generationStarts;
@@ -519,6 +584,12 @@ export class ApplicationDocumentJourneyPage {
         buffer: upload.bytes
       });
     }
+  }
+
+  private fixture(name: string): ApplicationDocumentFixture {
+    const selected = applicationDocumentFixtures()[name];
+    if (!selected) throw new Error(`Unknown application document fixture: ${name}`);
+    return selected;
   }
 
   private selectedJobCard(): Locator {

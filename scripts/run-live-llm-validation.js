@@ -47,7 +47,7 @@ const cases = [
   ['minimal-profile', 'minimal-job', ordinaryJob],
   ['career-changer', 'career-change-job', ordinaryJob],
   ['uploaded-cv-first', 'uploaded-cv-job', ordinaryJob],
-  ['stress-profile', 'stress-substantial-job', substantialJob],
+  ['very-rich-profile', 'very-rich-substantial-job', substantialJob],
 ];
 
 const jsonSchema = {
