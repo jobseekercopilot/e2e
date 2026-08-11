@@ -29,6 +29,7 @@ interface DocumentReference {
 export interface PreferredJob {
   title: string;
   company: string;
+  canonicalJobId?: string;
 }
 
 interface UploadOperation {
@@ -117,6 +118,10 @@ export class ApplicationDocumentJourneyPage {
   private async ensureSearchResults(entryPoint: 'ADD' | 'GENERATE', preferredJob?: PreferredJob): Promise<void> {
     const cards = this.page.getByTestId('job-result-card');
     if (entryPoint === 'ADD' && await cards.first().isVisible().catch(() => false)) return;
+    if (preferredJob) {
+      const preferred = this.preferredJobCard(cards, preferredJob);
+      if (await preferred.isVisible().catch(() => false)) return;
+    }
 
     const findJobs = this.page.getByRole('button', { name: 'Find jobs', exact: true });
     if (await this.page.getByTestId('search-setup-prompt').isVisible().catch(() => false)) {
@@ -156,7 +161,7 @@ export class ApplicationDocumentJourneyPage {
       && new URL(response.url()).pathname === '/api/jobs/search');
     await findJobs.click();
     const completedSearch = await searchResponse;
-    expect(completedSearch.ok(), 'The fixture job search must complete successfully.').toBe(true);
+    expect(completedSearch.ok(), 'The job search must complete successfully.').toBe(true);
     await expect(this.page.getByTestId('job-results-workspace')
       .getByRole('button', { name: 'Refresh', exact: true }))
       .toBeEnabled({ timeout: 30_000 });
@@ -511,13 +516,10 @@ export class ApplicationDocumentJourneyPage {
   ): Promise<Locator> {
     const cards = this.page.getByTestId('job-result-card');
     if (preferredJob) {
-      const preferred = cards
-        .filter({ hasText: preferredJob.title })
-        .filter({ hasText: preferredJob.company })
-        .first();
+      const preferred = this.preferredJobCard(cards, preferredJob);
       await expect(
         preferred,
-        `The fixture search did not return ${preferredJob.title} at ${preferredJob.company}.`
+        `The search did not return ${preferredJob.title} at ${preferredJob.company}.`
       ).toBeVisible({ timeout: 30_000 });
       const toggle = preferred.getByRole('button', { name: 'Toggle job details', exact: true });
       if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
@@ -543,7 +545,23 @@ export class ApplicationDocumentJourneyPage {
       if (actionBecameVisible) return card;
       if ((await toggle.getAttribute('aria-expanded')) === 'true') await toggle.click();
     }
-    throw new Error(`The fixture job search returned no ${entryPoint.toLowerCase()} application candidate.`);
+    throw new Error(`The job search returned no ${entryPoint.toLowerCase()} application candidate.`);
+  }
+
+  private preferredJobCard(cards: Locator, preferredJob: PreferredJob): Locator {
+    if (preferredJob.canonicalJobId) {
+      if (!/^[A-Za-z0-9._:-]{1,128}$/.test(preferredJob.canonicalJobId)) {
+        throw new Error('The preferred job exposed an unsafe canonical identity.');
+      }
+      return this.page
+        .locator(`app-job-card[data-job-reference="${preferredJob.canonicalJobId}"]`)
+        .getByTestId('job-result-card')
+        .first();
+    }
+    return cards
+      .filter({ hasText: preferredJob.title })
+      .filter({ hasText: preferredJob.company })
+      .first();
   }
 
   private async applicationIdForCard(card: Locator): Promise<string> {

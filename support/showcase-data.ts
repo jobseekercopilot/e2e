@@ -36,6 +36,8 @@ export interface ShowcaseCandidate extends DemoUser {
   selectedJob: {
     title: string;
     company: string;
+    canonicalJobId?: string;
+    provider?: string;
   };
 }
 

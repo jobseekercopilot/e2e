@@ -1,8 +1,13 @@
+import { execFile } from 'node:child_process';
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
-import { expect, type Download, type Page } from '@playwright/test';
+import { promisify } from 'node:util';
+import { expect, type Download, type Locator, type Page } from '@playwright/test';
 import { e2eConfig } from './config';
 import { demoCursor } from './demo-cursor';
+
+const execFileAsync = promisify(execFile);
 
 export interface SavedDemoDownload {
   path: string;
@@ -38,30 +43,10 @@ export async function saveDemoDownload(download: Download, preferredBaseName: st
 export async function previewDownloadedPdf(page: Page, filePath: string, title: string, durationMs: number): Promise<void> {
   if (path.extname(filePath).toLowerCase() !== '.pdf') return;
 
-  const buffer = await fs.readFile(filePath);
-  const dataUrl = `data:application/pdf;base64,${buffer.toString('base64')}`;
   const preview = await page.context().newPage();
   await demoCursor.install(preview);
   await preview.setViewportSize(page.viewportSize() ?? { width: 1920, height: 1080 });
-  await preview.setContent(`
-    <!doctype html>
-    <html lang="en">
-      <head>
-        <meta charset="utf-8" />
-        <title>${escapeHtml(title)}</title>
-        <style>
-          body { margin: 0; background: #f8fafc; color: #0f172a; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-          header { height: 64px; display: flex; align-items: center; gap: 12px; padding: 0 28px; border-bottom: 1px solid #dbe3ef; background: white; box-sizing: border-box; }
-          strong { color: #2563eb; }
-          iframe { display: block; width: 100vw; height: calc(100vh - 64px); border: 0; background: white; }
-        </style>
-      </head>
-      <body>
-        <header><strong>Document preview</strong><span>${escapeHtml(title)}</span></header>
-        <iframe title="${escapeHtml(title)}" src="${dataUrl}"></iframe>
-      </body>
-    </html>
-  `);
+  await renderDownloadedPdfPreview(preview, filePath, title);
   await preview.waitForTimeout(Math.min(durationMs, 1600));
   const viewport = preview.viewportSize() ?? { width: 1920, height: 1080 };
   await Promise.all([
@@ -102,8 +87,32 @@ export async function previewDownloadedPdfInPlace(
 ): Promise<void> {
   if (path.extname(filePath).toLowerCase() !== '.pdf') return;
 
-  const buffer = await fs.readFile(filePath);
-  const dataUrl = `data:application/pdf;base64,${buffer.toString('base64')}`;
+  const pageCount = await renderDownloadedPdfPreview(page, filePath, title);
+  await demoCursor.restore(page);
+  await page.waitForTimeout(Math.min(durationMs, 1800));
+  if (pageCount > 1) {
+    const secondPage = page.locator('article.document-page').nth(1);
+    await Promise.all([
+      smoothScrollTo(page, secondPage),
+      demoCursor.park(page)
+    ]);
+  }
+  await page.waitForTimeout(Math.max(durationMs - 1800, 1500));
+  await page.goto(returnUrl);
+}
+
+export async function renderDownloadedPdfPreview(
+  page: Page,
+  filePath: string,
+  title: string
+): Promise<number> {
+  const pageImages = await rasterizePdf(filePath);
+  const pages = pageImages.map((dataUrl, index) => `
+    <article class="document-page" aria-label="Page ${index + 1} of ${pageImages.length}">
+      <div class="page-label">Page ${index + 1} of ${pageImages.length}</div>
+      <img src="${dataUrl}" alt="Rendered ${escapeHtml(title)}, page ${index + 1}" />
+    </article>
+  `).join('');
   await page.setContent(`
     <!doctype html>
     <html lang="en">
@@ -111,21 +120,70 @@ export async function previewDownloadedPdfInPlace(
         <meta charset="utf-8" />
         <title>${escapeHtml(title)}</title>
         <style>
-          body { margin: 0; background: #e2e8f0; color: #0f172a; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-          header { height: 72px; display: flex; align-items: center; gap: 14px; padding: 0 32px; border-bottom: 1px solid #cbd5e1; background: white; box-sizing: border-box; }
-          strong { color: #2563eb; font-size: 18px; }
-          span { color: #334155; font-weight: 650; }
-          iframe { display: block; width: 100vw; height: calc(100vh - 72px); border: 0; background: white; }
+          * { box-sizing: border-box; }
+          html { scroll-behavior: auto; }
+          body { margin: 0; background: #dfe7f1; color: #0f172a; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+          header { position: sticky; top: 0; z-index: 2; height: 72px; display: flex; align-items: center; gap: 14px; padding: 0 32px; border-bottom: 1px solid #cbd5e1; background: rgba(255,255,255,.98); box-shadow: 0 4px 18px rgba(15,23,42,.08); }
+          header strong { color: #2563eb; font-size: 18px; }
+          header span { color: #334155; font-weight: 650; }
+          main { display: flex; flex-direction: column; align-items: center; gap: 32px; padding: 28px 32px 52px; }
+          .document-page { position: relative; width: min(760px, calc(100vw - 120px)); background: white; box-shadow: 0 12px 42px rgba(15,23,42,.18); }
+          .document-page img { display: block; width: 100%; height: auto; }
+          .page-label { position: absolute; right: 14px; top: 14px; padding: 6px 10px; border-radius: 999px; background: rgba(15,23,42,.78); color: white; font-size: 12px; font-weight: 700; }
         </style>
       </head>
       <body>
         <header><strong>Generated document preview</strong><span>${escapeHtml(title)}</span></header>
-        <iframe title="${escapeHtml(title)}" src="${dataUrl}"></iframe>
+        <main>${pages}</main>
       </body>
     </html>
   `);
-  await page.waitForTimeout(durationMs);
-  await page.goto(returnUrl);
+  await expect(page.locator('article.document-page')).toHaveCount(pageImages.length);
+  await expect(page.locator('article.document-page').first().locator('img')).toBeVisible();
+  return pageImages.length;
+}
+
+async function rasterizePdf(filePath: string): Promise<string[]> {
+  const temporaryDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'jsc-demo-pdf-preview-'));
+  try {
+    const outputPrefix = path.join(temporaryDirectory, 'page');
+    await execFileAsync('pdftoppm', [
+      '-png', '-r', '120', '-f', '1', '-l', '2', filePath, outputPrefix
+    ], { maxBuffer: 16 * 1024 * 1024 });
+    const rendered = (await fs.readdir(temporaryDirectory))
+      .filter(name => /^page-\d+\.png$/.test(name))
+      .sort((left, right) => left.localeCompare(right, 'en', { numeric: true }));
+    if (rendered.length === 0) {
+      throw new Error('The generated PDF produced no visible preview pages.');
+    }
+    return await Promise.all(rendered.map(async name => {
+      const image = await fs.readFile(path.join(temporaryDirectory, name));
+      if (image.length < 1024) throw new Error(`Rendered PDF page ${name} was unexpectedly small.`);
+      return `data:image/png;base64,${image.toString('base64')}`;
+    }));
+  } finally {
+    await fs.rm(temporaryDirectory, { recursive: true, force: true });
+  }
+}
+
+async function smoothScrollTo(page: Page, locator: Locator): Promise<void> {
+  await locator.evaluate((element) => new Promise<void>((resolve) => {
+    const startY = window.scrollY;
+    const targetY = Math.max(0, element.getBoundingClientRect().top + startY - 104);
+    const deltaY = targetY - startY;
+    const startTime = performance.now();
+    const durationMs = 820;
+    const step = (now: number): void => {
+      const progress = Math.min((now - startTime) / durationMs, 1);
+      const eased = progress < 0.5
+        ? 2 * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+      window.scrollTo(0, startY + deltaY * eased);
+      if (progress < 1) window.requestAnimationFrame(step);
+      else resolve();
+    };
+    window.requestAnimationFrame(step);
+  }));
 }
 
 function escapeHtml(value: string): string {

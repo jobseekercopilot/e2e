@@ -6,7 +6,22 @@ const dotenv = require('dotenv');
 const e2eRoot = path.resolve(__dirname, '..');
 const workspace = path.resolve(e2eRoot, '..');
 const infrastructure = path.join(workspace, 'infrastructure');
-const outputDir = path.join(e2eRoot, 'demo-recordings', 'final');
+const recordingRoot = path.join(e2eRoot, 'demo-recordings');
+const providerMode = (process.env.PROMO_PROVIDER_MODE || 'fixture').toLowerCase();
+if (!['fixture', 'live'].includes(providerMode)) {
+  throw new Error('PROMO_PROVIDER_MODE must be fixture or live.');
+}
+const liveShowcase = providerMode === 'live';
+const outputRelative = process.env.SHOWCASE_OUTPUT_DIR
+  || (liveShowcase ? 'demo-recordings/live-review' : 'demo-recordings/final');
+if (path.isAbsolute(outputRelative)) {
+  throw new Error('SHOWCASE_OUTPUT_DIR must be a relative path below demo-recordings/.');
+}
+const outputDir = path.resolve(e2eRoot, outputRelative);
+const relativeOutput = path.relative(recordingRoot, outputDir);
+if (!relativeOutput || relativeOutput.startsWith('..') || path.isAbsolute(relativeOutput)) {
+  throw new Error('SHOWCASE_OUTPUT_DIR must resolve to a child directory of demo-recordings/.');
+}
 const webmDir = path.join(outputDir, 'webm');
 const downloadDir = path.join(outputDir, 'downloads');
 const timelinePath = path.join(outputDir, 'showcase-timeline.json');
@@ -18,20 +33,32 @@ const envFile = path.join(infrastructure, '.env.e2e');
 if (!fs.existsSync(envFile)) throw new Error(`Missing required local fixture configuration: ${envFile}`);
 const localFixtureEnv = dotenv.parse(fs.readFileSync(envFile));
 const systemDataPort = localFixtureEnv.E2E_SYSTEM_DATA_SERVICE_PORT || '8103';
+if (liveShowcase) {
+  for (const variable of ['ALLOW_LIVE_SHOWCASE', 'ALLOW_REAL_PROVIDER_E2E', 'ALLOW_AI_GENERATION']) {
+    if ((process.env[variable] || '').toLowerCase() !== 'true') {
+      throw new Error(`Live showcase recording requires ${variable}=true explicitly.`);
+    }
+  }
+  const requestedBaseUrl = process.env.E2E_BASE_URL || 'http://localhost:3000';
+  const parsedBaseUrl = new URL(requestedBaseUrl);
+  if (parsedBaseUrl.protocol !== 'http:' || !['localhost', '127.0.0.1'].includes(parsedBaseUrl.hostname)) {
+    throw new Error('Live showcase recording is restricted to the loopback manual environment.');
+  }
+}
 const env = {
   ...process.env,
   SYSTEM_DATA_SERVICE_URL: process.env.SYSTEM_DATA_SERVICE_URL || `http://localhost:${systemDataPort}`,
   SYSTEM_DATA_INTERNAL_CALLER_KEY: process.env.SYSTEM_DATA_INTERNAL_CALLER_KEY
     || localFixtureEnv.SYSTEM_DATA_INTERNAL_CALLER_KEY,
   E2E_PROFILE: 'demo',
-  E2E_BASE_URL: process.env.E2E_BASE_URL || 'http://localhost:3100',
+  E2E_BASE_URL: process.env.E2E_BASE_URL || (liveShowcase ? 'http://localhost:3000' : 'http://localhost:3100'),
   HEADLESS: process.env.HEADLESS || 'true',
   SLOW_MO: '0',
   RECORD_VIDEO: 'true',
   DEMO_MODE: 'true',
   DEMO_RECORDING: 'true',
-  ALLOW_AI_GENERATION: 'true',
-  ALLOW_REAL_PROVIDER_E2E: 'false',
+  ALLOW_AI_GENERATION: liveShowcase ? process.env.ALLOW_AI_GENERATION : 'true',
+  ALLOW_REAL_PROVIDER_E2E: liveShowcase ? process.env.ALLOW_REAL_PROVIDER_E2E : 'false',
   USE_SAVED_SESSION: 'false',
   SAVE_DEMO_SESSION: 'false',
   VIDEO_NAME: 'JOB-SEEKER-COPILOT-SHOWCASE',
@@ -83,8 +110,12 @@ for (const file of fs.readdirSync(webmDir)) {
   }
 }
 
-const preflight = run('python3', ['-m', 'scripts.demo.check_fixture_modes'], { cwd: infrastructure, env: process.env });
-requireSuccess(preflight, 'Fixture-provider preflight');
+const previewPreflight = run('pdftoppm', ['-v'], { cwd: e2eRoot, env: process.env });
+requireSuccess(previewPreflight, 'PDF preview renderer preflight');
+const preflight = liveShowcase
+  ? run('./scripts/health-check.sh', ['--profile', 'real-providers'], { cwd: infrastructure, env: process.env })
+  : run('python3', ['-m', 'scripts.demo.check_fixture_modes'], { cwd: infrastructure, env: process.env });
+requireSuccess(preflight, liveShowcase ? 'Real-provider runtime preflight' : 'Fixture-provider preflight');
 const scenario = run('npx', ['cucumber-js', 'features/showcase/PRODUCT-SHOWCASE.feature'], { cwd: e2eRoot, env });
 
 const rawVideos = fs.readdirSync(webmDir)
@@ -92,7 +123,7 @@ const rawVideos = fs.readdirSync(webmDir)
   .map(file => ({ file, mtime: fs.statSync(path.join(webmDir, file)).mtimeMs }))
   .sort((left, right) => right.mtime - left.mtime);
 if (scenario.exitCode !== 0 || rawVideos.length === 0 || !fs.existsSync(timelinePath)) {
-  fs.writeFileSync(reportPath, `${JSON.stringify({ fixtureMode: true, preflight, scenario, rawVideos }, null, 2)}\n`);
+  fs.writeFileSync(reportPath, `${JSON.stringify({ fixtureMode: !liveShowcase, providerMode, preflight, scenario, rawVideos }, null, 2)}\n`);
   throw new Error('The showcase scenario failed; recording evidence was retained for diagnosis.');
 }
 
@@ -116,8 +147,10 @@ for (const chapter of chapters) {
 
 const report = {
   createdAt: new Date().toISOString(),
-  fixtureMode: true,
-  realProvidersAllowed: false,
+  fixtureMode: !liveShowcase,
+  providerMode,
+  realProvidersAllowed: liveShowcase,
+  realOpenAiGeneration: liveShowcase,
   sourceFeature: 'features/showcase/PRODUCT-SHOWCASE.feature',
   master: { file: path.relative(e2eRoot, master), ...probe(master) },
   clips,
@@ -129,10 +162,14 @@ const report = {
 fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
 fs.writeFileSync(path.join(outputDir, 'README.md'), [
   '# Job Seeker Copilot product showcase', '',
-  'The master and all seven chapter clips are generated from one deterministic, fixture-backed real UI journey.', '',
+  liveShowcase
+    ? 'The master and all seven chapter clips are generated from one synthetic-user UI journey using point-in-time live job-provider results and real OpenAI document generation.'
+    : 'The master and all seven chapter clips are generated from one deterministic, fixture-backed real UI journey.', '',
   `- Master: \`${report.master.file}\` (${report.master.width}x${report.master.height}, ${report.master.durationSeconds.toFixed(1)}s)`,
   ...clips.map(clip => `- ${clip.chapter}: \`${clip.file}\` (${clip.durationSeconds.toFixed(1)}s)`),
-  '', 'Paid/live providers are disabled. Generated-document downloads are retained in `downloads/`.', ''
+  '', liveShowcase
+    ? 'Results and generated text are point-in-time evidence, not deterministic regression fixtures. Generated-document downloads are retained in `downloads/`.'
+    : 'Paid/live providers are disabled. Generated-document downloads are retained in `downloads/`.', ''
 ].join('\n'));
 
 if (requestedClip) process.stdout.write(`Requested clip: ${path.join(outputDir, `${requestedClip}.mp4`)}\n`);

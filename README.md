@@ -312,6 +312,23 @@ The output folder is cleaned at the start of each recording run:
 demo-recordings/final/
 ```
 
+For a deliberately non-deterministic promotional review using current live job
+results and one real OpenAI generation, first start and health-check the
+`real-providers` runtime. Then run the separately gated recorder:
+
+```bash
+ALLOW_LIVE_SHOWCASE=true \
+ALLOW_REAL_PROVIDER_E2E=true \
+ALLOW_AI_GENERATION=true \
+npm run record:showcase:live
+```
+
+Live review media is written to `demo-recordings/live-review/` so a failed or
+unreviewed run cannot overwrite the deterministic final recording. The journey
+still uses the synthetic Alex Taylor identity; no real candidate profile or
+contact details are recorded. The report labels job results and model output as
+point-in-time live evidence. Promote a reviewed recording separately.
+
 Capacity browser sessions reuse the fixture-backed DISCOVER page objects and
 are deliberately restricted to loopback port 3100:
 
@@ -356,7 +373,12 @@ Document downloads are preserved under:
 demo-recordings/final/downloads
 ```
 
-The combined generation and document-management clips save deterministic review filenames such as `alex-taylor-tailored-cv.pdf` and `alex-taylor-cover-letter.pdf` when the application exports PDF.
+The combined generation and document-management clips save review filenames
+such as `alex-taylor-tailored-cv.pdf` and
+`alex-taylor-tailored-cover-letter.pdf` when the application exports PDF.
+Poppler rasterises the first two pages into the recorded browser view so the
+video shows the actual CV and cover-letter content instead of relying on the
+headless Chromium PDF plug-in.
 
 ## Videos And Reports
 

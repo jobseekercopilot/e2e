@@ -29,6 +29,7 @@ When(
   {timeout: 12 * 60_000},
   async function (this: JobSeekerWorld) {
     if (!this.showcaseCandidate || !this.applicationDocumentJourneyPage) throw new Error('Showcase journey was not initialised.');
+    await this.productShowcasePage?.verifyLiveShowcaseRuntime();
     this.applicationDocumentChoices = { CV: 'GENERATE', COVER_LETTER: 'GENERATE' };
     await this.applicationDocumentJourneyPage.startJourney('GENERATE', this.showcaseCandidate.selectedJob);
     await this.applicationDocumentJourneyPage.chooseDocuments(this.applicationDocumentChoices);
