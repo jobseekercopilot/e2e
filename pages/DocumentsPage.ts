@@ -1,5 +1,10 @@
 import { expect, type Page } from '@playwright/test';
-import { previewDownloadedPdf, saveDemoDownload, type SavedDemoDownload } from '../support/demo-downloads';
+import {
+  previewDownloadedPdf,
+  previewDownloadedPdfInPlace,
+  saveDemoDownload,
+  type SavedDemoDownload
+} from '../support/demo-downloads';
 import { demoCursor } from '../support/demo-cursor';
 import { BasePage } from './base.page';
 
@@ -72,6 +77,54 @@ export class DocumentsPage extends BasePage {
 
     await demoCursor.park(this.page);
     return [saved];
+  }
+
+  async showShowcaseDocuments(title: string, company: string): Promise<SavedDemoDownload[]> {
+    await this.open();
+    const families = this.byTestId('document-family-card')
+      .filter({ hasText: title })
+      .filter({ hasText: company });
+    await expect(families).toHaveCount(2, { timeout: 30_000 });
+
+    const saved: SavedDemoDownload[] = [];
+    for (const specification of [
+      { type: 'CV', filename: 'alex-taylor-java-software-developer-cv', duration: 4_200 },
+      { type: 'Cover letter', filename: 'alex-taylor-java-software-developer-cover-letter', duration: 3_600 }
+    ]) {
+      const family = families.filter({ hasText: specification.type }).first();
+      await this.intentionalScrollNearCenter(family);
+      await this.spotlight(family);
+      await this.pauseAfterFeature();
+      await this.clearSpotlight();
+      await this.clickFramed(family.locator('button.document-summary'));
+      const expanded = family.locator('.document-expanded');
+      await expect(expanded.getByText('Complete version history', { exact: true })).toBeVisible();
+      await this.intentionalScrollNearCenter(expanded);
+      await this.spotlight(expanded);
+      await this.pauseAfterFeature();
+      const download = await this.downloadExpandedDocument(specification.filename);
+      saved.push(download);
+      await this.clearSpotlight();
+      await previewDownloadedPdfInPlace(
+        this.page,
+        download.path,
+        specification.type === 'CV' ? 'Alex Taylor — tailored CV' : 'Alex Taylor — tailored cover letter',
+        specification.duration
+      );
+      await this.open();
+    }
+    await demoCursor.park(this.page);
+    return saved;
+  }
+
+  async expectShowcaseDocumentsPersisted(title: string, company: string): Promise<void> {
+    await this.open();
+    const families = this.byTestId('document-family-card')
+      .filter({hasText: title})
+      .filter({hasText: company});
+    await expect(families).toHaveCount(2, {timeout: 30_000});
+    await expect(families.filter({hasText: 'CV'}).first()).toBeVisible();
+    await expect(families.filter({hasText: 'Cover letter'}).first()).toBeVisible();
   }
 
   private async downloadExpandedDocument(filename: string): Promise<SavedDemoDownload> {

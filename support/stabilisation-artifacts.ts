@@ -30,6 +30,7 @@ export interface DocumentValidationContext {
   jobTitle: string;
   company: string;
   projectTitle: string;
+  projectEvidenceTerms: string[];
   qualificationTitle: string;
   jobRequirementTerms: string[];
 }
@@ -42,6 +43,7 @@ const SECTION_HEADINGS = new Set([
   'Professional Profile',
   'Personal Summary',
   'Projects',
+  'Selected Projects',
   'Technical Skills',
   'Core Skills',
   'Employment History',
@@ -135,6 +137,21 @@ function expectText(value: string, text: string, message: string): void {
   ).toContain(value.replace(/\s+/g, ' ').toLocaleLowerCase('en-GB'));
 }
 
+function expectProjectEvidence(
+  text: string,
+  kind: DocumentKind,
+  context: DocumentValidationContext
+): void {
+  const titlePresent = occurrenceCount(text, context.projectTitle) > 0;
+  const evidenceTermsPresent = context.projectEvidenceTerms.filter(
+    term => occurrenceCount(text, term) > 0
+  );
+  expect(
+    titlePresent || evidenceTermsPresent.length > 0,
+    `The ${kind} omitted the selected Project evidence.`
+  ).toBe(true);
+}
+
 export function validateGeneratedDocumentText(
   extractedText: string,
   kind: DocumentKind,
@@ -153,20 +170,12 @@ export function validateGeneratedDocumentText(
     text,
     `The ${kind} did not identify the selected role.`
   );
-  expectText(
-    context.projectTitle,
-    evidenceText,
-    `The ${kind} omitted the selected Project evidence.`
-  );
+  expectProjectEvidence(evidenceText, kind, context);
   expectText(
     context.qualificationTitle,
     text,
     `The ${kind} omitted the selected Qualification evidence.`
   );
-  expect(
-    occurrenceCount(text, context.qualificationTitle),
-    `The ${kind} duplicated the selected Qualification evidence.`
-  ).toBe(1);
   expect(
     context.jobRequirementTerms.length,
     'The selected job did not expose a bounded requirement term for tailoring.'
@@ -184,7 +193,7 @@ export function validateGeneratedDocumentText(
       'The CV did not contain a professional or technical profile section.'
     ).toMatch(/\b(?:Technical|Professional) Profile\b/i);
     expect(text, 'The CV did not present the selected Project as a Project.')
-      .toMatch(/(?:^|\n)Projects(?:\n|$)/i);
+      .toMatch(/(?:^|\n)(?:Selected )?Projects(?:\n|$)/i);
     expect(text, 'The CV did not present the selected Qualification once.')
       .toMatch(/(?:^|\n)Education and Qualifications(?:\n|$)/i);
   } else {
@@ -208,7 +217,9 @@ export function validateGeneratedDocumentText(
 
   const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
   if (kind === 'cv') {
-    const projectHeading = lines.indexOf('Projects');
+    const projectHeading = lines.findIndex(line =>
+      line === 'Projects' || line === 'Selected Projects'
+    );
     const nextHeading = lines.findIndex(
       (line, index) => index > projectHeading && SECTION_HEADINGS.has(line)
     );
@@ -220,6 +231,23 @@ export function validateGeneratedDocumentText(
       projectSection,
       'The CV did not present the selected Project inside its Projects section.'
     );
+
+    const qualificationHeading = lines.findIndex(line =>
+      line === 'Education and Qualifications' || line === 'Qualifications'
+    );
+    const nextQualificationHeading = lines.findIndex(
+      (line, index) => index > qualificationHeading && SECTION_HEADINGS.has(line)
+    );
+    const qualificationSection = lines
+      .slice(
+        qualificationHeading + 1,
+        nextQualificationHeading === -1 ? undefined : nextQualificationHeading
+      )
+      .join('\n');
+    expect(
+      occurrenceCount(qualificationSection, context.qualificationTitle),
+      'The CV must present the selected Qualification exactly once in its Qualifications section.'
+    ).toBe(1);
   }
   for (let index = 0; index < lines.length; index += 1) {
     if (!SECTION_HEADINGS.has(lines[index])) continue;

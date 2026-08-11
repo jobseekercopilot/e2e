@@ -1,4 +1,4 @@
-@demo
+@demo @promo
 Feature: TRACK
 
   Scenario: Alex moves an application to interview

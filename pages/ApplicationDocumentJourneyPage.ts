@@ -26,6 +26,11 @@ interface DocumentReference {
   [key: string]: unknown;
 }
 
+export interface PreferredJob {
+  title: string;
+  company: string;
+}
+
 interface UploadOperation {
   operationId?: string;
   applicationId?: string;
@@ -52,6 +57,7 @@ export class ApplicationDocumentJourneyPage {
   private walletBefore?: number;
   private readonly uploadResponses: Response[] = [];
   private readonly uploadPayloads: UploadOperation[] = [];
+  private readonly selectedUploadFixtures = new Map<DocumentPurpose, ApplicationDocumentFixture>();
   private readonly pendingResponseReads: Promise<void>[] = [];
   private generationStarts = 0;
 
@@ -75,13 +81,13 @@ export class ApplicationDocumentJourneyPage {
     });
   }
 
-  async startJourney(entryPoint: 'ADD' | 'GENERATE'): Promise<void> {
+  async startJourney(entryPoint: 'ADD' | 'GENERATE', preferredJob?: PreferredJob): Promise<void> {
     this.walletBefore = await this.walletBalance();
     await this.page.goto('/dashboard');
     await this.page.getByTestId('workspace-tab-search').click();
-    await this.ensureSearchResults(entryPoint);
+    await this.ensureSearchResults(entryPoint, preferredJob);
     await expect(this.page.getByTestId('job-result-card').first()).toBeVisible({ timeout: 30_000 });
-    this.selectedCard = await this.openJobCard(entryPoint);
+    this.selectedCard = await this.openJobCard(entryPoint, preferredJob);
     const action = this.selectedCard.getByTestId(
       entryPoint === 'ADD' ? 'track-application-button' : 'generate-documents-button'
     );
@@ -108,7 +114,7 @@ export class ApplicationDocumentJourneyPage {
     await expect(this.page.getByTestId('application-document-choice')).toBeVisible();
   }
 
-  private async ensureSearchResults(entryPoint: 'ADD' | 'GENERATE'): Promise<void> {
+  private async ensureSearchResults(entryPoint: 'ADD' | 'GENERATE', preferredJob?: PreferredJob): Promise<void> {
     const cards = this.page.getByTestId('job-result-card');
     if (entryPoint === 'ADD' && await cards.first().isVisible().catch(() => false)) return;
 
@@ -130,7 +136,7 @@ export class ApplicationDocumentJourneyPage {
       await this.saveProfileSection();
     }
 
-    if (entryPoint === 'GENERATE') {
+    if (entryPoint === 'GENERATE' && !preferredJob) {
       // DEMO_READY intentionally owns all nine core fixture jobs. Search Leeds
       // so the untracked governed apprenticeship vacancy is available for a
       // fresh generation journey rather than selecting a progressed application.
@@ -186,6 +192,14 @@ export class ApplicationDocumentJourneyPage {
     await summary.getByRole('button', { name: 'Manage experience & achievements', exact: true }).click();
     const dialog = this.page.locator('#experience-evidence-dialog');
     await expect(dialog).toBeVisible();
+    const confirmedCard = dialog.locator('article.evidence-card')
+      .filter({ hasText: 'User confirmed' })
+      .first();
+    if (await confirmedCard.isVisible().catch(() => false)) {
+      await dialog.getByRole('button', { name: 'Close Experience and Evidence manager' }).click();
+      await expect(dialog).toBeHidden();
+      return;
+    }
     let card = dialog.locator('article.evidence-card').filter({ hasText: GENERATION_EVIDENCE_TITLE });
     if (await card.getByText('User confirmed', { exact: true }).isVisible().catch(() => false)) {
       await dialog.getByRole('button', { name: 'Close Experience and Evidence manager' }).click();
@@ -232,6 +246,75 @@ export class ApplicationDocumentJourneyPage {
       .click();
   }
 
+  async chooseSafeDocxForCv(): Promise<void> {
+    const fixtures = applicationDocumentFixtures();
+    await this.choose('CV', 'UPLOAD', fixtures.safeDocx);
+    await this.choose('COVER_LETTER', 'OMIT', fixtures.coverPdf);
+    await this.page.getByTestId('application-document-choice')
+      .getByRole('button', { name: 'Continue', exact: true })
+      .click();
+  }
+
+  async chooseNamedCvFixture(fixtureName: string): Promise<void> {
+    const fixture = this.fixture(fixtureName);
+    await this.choose('CV', 'UPLOAD', fixture);
+    await this.choose('COVER_LETTER', 'OMIT', applicationDocumentFixtures().coverPdf);
+    await this.page.getByTestId('application-document-choice')
+      .getByRole('button', { name: 'Continue', exact: true })
+      .click();
+  }
+
+  async assertCvFixtureRejectedByBrowser(fixtureName: string): Promise<void> {
+    const fixture = this.fixture(fixtureName);
+    const commandsBefore = this.uploadResponses.filter(response =>
+      response.request().method() === 'POST').length;
+    await this.choose('CV', 'UPLOAD', fixture);
+    await this.choose('COVER_LETTER', 'OMIT', applicationDocumentFixtures().coverPdf);
+    const selector = this.page.getByTestId('application-document-choice');
+    await expect(selector.getByRole('alert')).toHaveText(
+      'Choose a non-empty PDF or Microsoft Word .docx file no larger than 10 MiB.'
+    );
+    await expect(selector.getByRole('button', { name: 'Continue', exact: true })).toBeDisabled();
+    expect(this.uploadResponses.filter(response => response.request().method() === 'POST'))
+      .toHaveLength(commandsBefore);
+    const application = await this.currentApplication();
+    expect(application.cvDocumentReference ?? null).toBeNull();
+  }
+
+  async assertCvUploadSafelyRejected(): Promise<void> {
+    const card = this.selectedJobCard();
+    const message = card.getByText(
+      'The uploaded document did not pass secure processing.',
+      { exact: true }
+    );
+    await expect(message).toBeVisible({ timeout: 90_000 });
+    await Promise.all(this.pendingResponseReads);
+    const rejected = [...this.uploadPayloads].reverse().find(payload =>
+      payload.applicationId === this.requireApplicationId()
+      && payload.documentType === 'CV'
+      && payload.state === 'REJECTED');
+    expect(rejected, 'The hostile upload must reach a terminal rejected operation.').toBeTruthy();
+    expect(rejected?.documentId).toBeUndefined();
+    const application = await this.currentApplication();
+    expect(application.cvDocumentReference ?? null).toBeNull();
+    const status = card.getByRole('article').filter({ hasText: 'The uploaded document did not pass secure processing.' });
+    await expect(status.getByRole('button', { name: 'Retry', exact: true })).toHaveCount(0);
+    await expect(status.getByRole('button', { name: 'Choose another file', exact: true })).toBeVisible();
+    await expect(status.getByRole('button', { name: 'Skip', exact: true })).toBeVisible();
+    const visibleText = await status.innerText();
+    expect(visibleText).not.toMatch(/(?:Exception|stack trace|\bat\s+[\w.$]+\([^)]*:\d+\))/i);
+  }
+
+  async recoverRejectedCvWithSafeDocx(): Promise<void> {
+    const card = this.selectedJobCard();
+    const status = card.getByRole('article').filter({ hasText: 'The uploaded document did not pass secure processing.' });
+    await status.getByRole('button', { name: 'Choose another file', exact: true }).click();
+    await expect(this.page.getByTestId('application-document-choice')).toBeVisible();
+    await this.chooseSafeDocxForCv();
+    await this.completeUploads(['CV']);
+    await this.assertApplication({CV: 'UPLOAD', COVER_LETTER: 'OMIT'});
+  }
+
   async completeUploads(expectedPurposes: DocumentPurpose[]): Promise<void> {
     for (const purpose of expectedPurposes) {
       const label = purpose === 'CV' ? 'CV' : 'Cover letter';
@@ -250,7 +333,10 @@ export class ApplicationDocumentJourneyPage {
     }
   }
 
-  async completeGeneration(expectedPurposes: DocumentPurpose[]): Promise<void> {
+  async completeGeneration(
+    expectedPurposes: DocumentPurpose[],
+    preferredEvidenceTitle = GENERATION_EVIDENCE_TITLE
+  ): Promise<void> {
     const selector = this.page.getByTestId('generation-evidence-selector');
     await expect(selector).toBeVisible({ timeout: 30_000 });
     const advert = selector.locator('textarea').first();
@@ -262,10 +348,17 @@ export class ApplicationDocumentJourneyPage {
     }
     const confirmation = selector.getByLabel(/I have reviewed this and confirm/i);
     if (await confirmation.isVisible().catch(() => false)) await confirmation.check();
-    const selectAll = selector.getByRole('button', { name: 'Select all', exact: true });
-    const count = await selectAll.count();
-    expect(count).toBe(expectedPurposes.length);
-    for (let index = 0; index < count; index += 1) await selectAll.first().click();
+    const purposePanels = selector.locator('.purpose-panel');
+    await expect(purposePanels).toHaveCount(expectedPurposes.length);
+    for (let index = 0; index < expectedPurposes.length; index += 1) {
+      const evidenceChoices = purposePanels.nth(index).locator('label.evidence-choice');
+      await expect(evidenceChoices.first()).toBeVisible();
+      const preferredEvidence = evidenceChoices.filter({hasText: preferredEvidenceTitle});
+      const selectedEvidence = await preferredEvidence.count() > 0
+        ? preferredEvidence.first()
+        : evidenceChoices.first();
+      await selectedEvidence.locator('input[type="checkbox"]').check();
+    }
 
     const startsBefore = this.generationStarts;
     const action = selector.getByRole('button', { name: /^Generate .*AI Credit/ });
@@ -301,9 +394,8 @@ export class ApplicationDocumentJourneyPage {
       if (choice === 'UPLOAD') {
         const operation = completed.find(value => value.documentType === purpose);
         expect(reference?.documentId).toBe(operation?.documentId);
-        const expectedFixture = purpose === 'CV'
-          ? applicationDocumentFixtures().cvPdf
-          : applicationDocumentFixtures().coverPdf;
+        const expectedFixture = this.selectedUploadFixtures.get(purpose);
+        if (!expectedFixture) throw new Error(`No selected ${purpose} upload fixture was recorded.`);
         expect(reference?.originalContentSha256).toBe(expectedFixture.sha256);
       }
     }
@@ -337,10 +429,17 @@ export class ApplicationDocumentJourneyPage {
   async assertUploadedDownloadHeaders(purpose: DocumentPurpose): Promise<void> {
     const operation = this.completedUploads().find(value => value.documentType === purpose);
     if (!operation?.documentId) throw new Error(`No completed ${purpose} upload was recorded.`);
-    const result = await this.page.evaluate(async documentId => {
+    const result = await this.page.evaluate(async ({documentId, fileType}) => {
       const metadataResponse = await fetch(`/api/v1/document-generation/documents/${documentId}/files/latest`);
-      const metadata = await metadataResponse.json() as {pdf?: {downloadUrl?: string}};
-      const downloadResponse = await fetch(metadata.pdf?.downloadUrl ?? '');
+      const metadata = await metadataResponse.json() as {
+        pdf?: {downloadUrl?: string};
+        docx?: {downloadUrl?: string};
+      };
+      const downloadUrl = fileType === 'DOCX'
+        ? metadata.docx?.downloadUrl
+        : metadata.pdf?.downloadUrl;
+      if (!downloadUrl) throw new Error(`No ${fileType} download URL was returned.`);
+      const downloadResponse = await fetch(downloadUrl);
       return {
         metadataStatus: metadataResponse.status,
         downloadStatus: downloadResponse.status,
@@ -349,12 +448,14 @@ export class ApplicationDocumentJourneyPage {
         contentDisposition: downloadResponse.headers.get('content-disposition'),
         nosniff: downloadResponse.headers.get('x-content-type-options')
       };
-    }, operation.documentId);
+    }, {documentId: operation.documentId, fileType: operation.fileType});
     expect(result.metadataStatus).toBe(200);
     expect(result.downloadStatus).toBe(200);
     expect(result.cacheControl).toContain('private');
     expect(result.cacheControl).toContain('no-store');
-    expect(result.contentType).toContain('application/pdf');
+    expect(result.contentType).toContain(operation.fileType === 'DOCX'
+      ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      : 'application/pdf');
     expect(result.contentDisposition).toMatch(/^attachment;/i);
     expect(result.nosniff).toBe('nosniff');
   }
@@ -404,8 +505,28 @@ export class ApplicationDocumentJourneyPage {
     }
   }
 
-  private async openJobCard(entryPoint: 'ADD' | 'GENERATE'): Promise<Locator> {
+  private async openJobCard(
+    entryPoint: 'ADD' | 'GENERATE',
+    preferredJob?: PreferredJob
+  ): Promise<Locator> {
     const cards = this.page.getByTestId('job-result-card');
+    if (preferredJob) {
+      const preferred = cards
+        .filter({ hasText: preferredJob.title })
+        .filter({ hasText: preferredJob.company })
+        .first();
+      await expect(
+        preferred,
+        `The fixture search did not return ${preferredJob.title} at ${preferredJob.company}.`
+      ).toBeVisible({ timeout: 30_000 });
+      const toggle = preferred.getByRole('button', { name: 'Toggle job details', exact: true });
+      if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+      const action = preferred.getByTestId(
+        entryPoint === 'ADD' ? 'track-application-button' : 'generate-documents-button'
+      );
+      await expect(action).toBeVisible();
+      return preferred;
+    }
     const count = await cards.count();
     for (let index = 0; index < count; index += 1) {
       const card = cards.nth(index);
@@ -456,12 +577,19 @@ export class ApplicationDocumentJourneyPage {
     const label = choice === 'OMIT' ? 'Not now' : choice === 'UPLOAD' ? 'Upload' : 'Generate';
     await fieldset.getByRole('radio', { name: new RegExp(`^${label}`) }).check();
     if (choice === 'UPLOAD') {
+      this.selectedUploadFixtures.set(purpose, upload);
       await fieldset.locator('input[type="file"]').setInputFiles({
         name: upload.name,
         mimeType: upload.mimeType,
         buffer: upload.bytes
       });
     }
+  }
+
+  private fixture(name: string): ApplicationDocumentFixture {
+    const selected = applicationDocumentFixtures()[name];
+    if (!selected) throw new Error(`Unknown application document fixture: ${name}`);
+    return selected;
   }
 
   private selectedJobCard(): Locator {
@@ -533,12 +661,13 @@ export class ApplicationDocumentJourneyPage {
       .or(page.getByRole('button', { name: /sign in/i }))
       .first()
       .click();
-    await page.getByLabel(/email address/i).fill(identity.email);
-    await page.getByLabel(/^password$/i).fill(PUBLIC_NAMED_STATE_PASSWORD);
+    const signInForm = page.locator('#mode-signin-segment form');
+    await signInForm.getByLabel(/email address/i).fill(identity.email);
+    await signInForm.getByLabel(/^password$/i).fill(PUBLIC_NAMED_STATE_PASSWORD);
     const [response] = await Promise.all([
       page.waitForResponse(response => response.request().method() === 'POST'
         && new URL(response.url()).pathname === '/api/auth/login'),
-      page.locator('#mode-signin-segment form').getByRole('button', { name: 'Sign in', exact: true }).click()
+      signInForm.getByRole('button', { name: 'Sign in', exact: true }).click()
     ]);
     expect(response.ok(), 'The secondary owner must sign in successfully.').toBe(true);
     await expect(page).toHaveURL(/\/dashboard$/);

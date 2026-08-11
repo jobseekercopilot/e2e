@@ -93,6 +93,41 @@ export async function previewDownloadedPdf(page: Page, filePath: string, title: 
   await preview.close();
 }
 
+export async function previewDownloadedPdfInPlace(
+  page: Page,
+  filePath: string,
+  title: string,
+  durationMs: number,
+  returnUrl = '/dashboard'
+): Promise<void> {
+  if (path.extname(filePath).toLowerCase() !== '.pdf') return;
+
+  const buffer = await fs.readFile(filePath);
+  const dataUrl = `data:application/pdf;base64,${buffer.toString('base64')}`;
+  await page.setContent(`
+    <!doctype html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8" />
+        <title>${escapeHtml(title)}</title>
+        <style>
+          body { margin: 0; background: #e2e8f0; color: #0f172a; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+          header { height: 72px; display: flex; align-items: center; gap: 14px; padding: 0 32px; border-bottom: 1px solid #cbd5e1; background: white; box-sizing: border-box; }
+          strong { color: #2563eb; font-size: 18px; }
+          span { color: #334155; font-weight: 650; }
+          iframe { display: block; width: 100vw; height: calc(100vh - 72px); border: 0; background: white; }
+        </style>
+      </head>
+      <body>
+        <header><strong>Generated document preview</strong><span>${escapeHtml(title)}</span></header>
+        <iframe title="${escapeHtml(title)}" src="${dataUrl}"></iframe>
+      </body>
+    </html>
+  `);
+  await page.waitForTimeout(durationMs);
+  await page.goto(returnUrl);
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')

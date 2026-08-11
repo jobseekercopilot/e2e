@@ -51,7 +51,7 @@ When('the claimant signs in on two browser sessions', async function (this: JobS
     const page = await context.newPage();
     const login = new RegisterPage(page, this.config.baseUrl);
     await login.loginUser(this.demoUser);
-    await expect(page.getByRole('heading', { name: 'Claimant Profile', exact: true })).toBeVisible();
+    await expect(page.getByTestId('job-search-preferences')).toBeVisible();
     current.previousContexts.push(context);
     current.previousPages.push(page);
   }
@@ -61,7 +61,7 @@ Then('both browser sessions are authenticated', async function (this: JobSeekerW
   const pages = resetState(this).previousPages ?? [];
   expect(pages).toHaveLength(2);
   for (const page of pages) {
-    await expect(page.getByRole('heading', { name: 'Claimant Profile', exact: true })).toBeVisible();
+    await expect(page.getByTestId('job-search-preferences')).toBeVisible();
   }
 });
 
@@ -171,13 +171,16 @@ Then('the previous browser sessions and refresh paths are revoked', async functi
 Then('the old password is rejected', async function (this: JobSeekerWorld) {
   if (!this.demoUser || !this.page) throw new Error('Account fixture is unavailable.');
   await this.page.goto(new URL('/sign-in', this.config.baseUrl).toString());
-  await this.page.getByLabel(/email address/i).fill(this.demoUser.email);
-  await this.page.getByLabel(/^password$/i).fill(this.demoUser.password);
+  const signInForm = this.page.locator('#mode-signin-segment form').filter({
+    has: this.page.locator('#login-password')
+  });
+  await signInForm.getByLabel(/email address/i).fill(this.demoUser.email);
+  await signInForm.getByLabel(/^password$/i).fill(this.demoUser.password);
   const responsePromise = this.page.waitForResponse(response =>
     response.request().method() === 'POST'
     && new URL(response.url()).pathname === '/api/auth/login'
   );
-  await this.page.locator('#btn-submit-signin').click();
+  await signInForm.getByRole('button', { name: 'Sign in', exact: true }).click();
   const response = await responsePromise;
   expect(response.status()).toBe(401);
   await expect(this.page.getByRole('alert')).toBeVisible();
@@ -189,7 +192,7 @@ Then('the password reset succeeds and the replacement password can sign in', asy
     throw new Error('Replacement sign-in fixture is unavailable.');
   }
   await this.registerPage.loginUser({ ...this.demoUser, password: current.replacementPassword });
-  await expect(this.page!.getByRole('heading', { name: 'Claimant Profile', exact: true })).toBeVisible();
+  await expect(this.page!.getByTestId('job-search-preferences')).toBeVisible();
   for (const context of current.previousContexts ?? []) {
     await context.close();
   }

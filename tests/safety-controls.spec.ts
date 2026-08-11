@@ -6,6 +6,7 @@ import { cleanupSyntheticUser, type FetchLike } from '../support/cleanup';
 import {
   makeArtifactPrivate,
   pruneArtifacts,
+  safeRequestUrl,
   safeArtifactStem,
   writeFailureReport
 } from '../support/artifacts';
@@ -131,6 +132,29 @@ test('failure artifacts are parallel-safe, private and bounded', async () => {
   }
 });
 
+test('failure evidence removes query strings and bounds browser diagnostics', async () => {
+  expect(safeRequestUrl('https://example.test/api/jobs?token=secret#fragment'))
+    .toBe('https://example.test/api/jobs');
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'jsc-e2e-evidence-'));
+  try {
+    const reportPath = await writeFailureReport(directory, safeArtifactStem('network failure'), 'e2e', {
+      scenario: 'A synthetic scenario',
+      consoleErrors: Array.from({ length: 30 }, (_, index) => `console ${index}`),
+      networkErrors: [{
+        method: 'GET',
+        url: 'https://example.test/private?access_token=secret',
+        status: 500
+      }]
+    });
+    const report = JSON.parse(await fs.readFile(reportPath, 'utf8'));
+    expect(report.consoleErrors).toHaveLength(20);
+    expect(report.networkErrors[0].url).toBe('https://example.test/private');
+    expect(JSON.stringify(report)).not.toContain('access_token');
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('beta configuration rejects demo and reusable-session flags', () => {
   expect(() => validateSessionPolicy('security', true, true, false))
     .toThrow('Beta profiles cannot enable demo mode');
@@ -175,6 +199,16 @@ test('job search opens the canonical application root', async () => {
 
   expect(pageObject).toContain("await this.page.goto('/');");
   expect(pageObject).not.toContain("await this.page.goto('/dashboard');");
+});
+
+test('product-confidence regression supplies the bounded account-email fixture', async () => {
+  const runner = await fs.readFile(
+    path.resolve(__dirname, '../scripts/run-product-suite.js'),
+    'utf8'
+  );
+
+  expect(runner).toContain("ACCOUNT_EMAIL_E2E_MODE: process.env.ACCOUNT_EMAIL_E2E_MODE || 'fixture'");
+  expect(runner).toContain("process.env.AUTHENTICATION_FIXTURE_URL || 'http://127.0.0.1:9104'");
 });
 
 test('live stabilisation is loopback-only and spending remains explicit', () => {
@@ -711,6 +745,10 @@ test('generated-document semantics enforce identity, evidence and structure', ()
     jobTitle: 'Junior Software Engineer',
     company: 'Example Recruitment',
     projectTitle: 'Job Seeker Copilot',
+    projectEvidenceTerms: [
+      'job-search application',
+      'reliable delivery for job seekers'
+    ],
     qualificationTitle: 'Bachelor of Music',
     jobRequirementTerms: ['Java', 'Angular']
   };
@@ -749,10 +787,34 @@ Alex Taylor
   expect(() => validateGeneratedDocumentText(coverLetter, 'cover-letter', context))
     .not.toThrow();
   expect(() => validateGeneratedDocumentText(
-    `${coverLetter}\nBachelor of Music`,
+    coverLetter.replace(
+      'building Job Seeker Copilot with Java and Angular',
+      'building a job-search application with Java and Angular'
+    ),
     'cover-letter',
     context
-  )).toThrow('duplicated the selected Qualification');
+  )).not.toThrow();
+  expect(() => validateGeneratedDocumentText(
+    `${coverLetter}\nMy Bachelor of Music developed disciplined practice and collaboration that I can apply here.`,
+    'cover-letter',
+    context
+  )).toThrow('duplicated narrative lines');
+  expect(() => validateGeneratedDocumentText(
+    cv.replace(
+      'Technical Profile\nEvidence-grounded software engineer',
+      'Technical Profile\nBachelor of Music graduate and evidence-grounded software engineer'
+    ),
+    'cv',
+    context
+  )).not.toThrow();
+  expect(() => validateGeneratedDocumentText(
+    cv.replace(
+      'Bachelor of Music, Royal Birmingham Conservatoire, completed in 2020.',
+      'Bachelor of Music, Royal Birmingham Conservatoire, completed in 2020.\nBachelor of Music, Royal Birmingham Conservatoire, completed in 2020.'
+    ),
+    'cv',
+    context
+  )).toThrow('exactly once in its Qualifications section');
   expect(() => validateGeneratedDocumentText(
     cv.replace(
       'Evidence-grounded software engineer',

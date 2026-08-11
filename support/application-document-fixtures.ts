@@ -18,14 +18,23 @@ function fixture(name: string, mimeType: string, bytes: Buffer): ApplicationDocu
   return { name, mimeType, bytes, sha256: sha256(bytes) };
 }
 
-function textPdf(text: string): Buffer {
-  const escaped = text.replaceAll('\\', '\\\\').replaceAll('(', '\\(').replaceAll(')', '\\)');
-  const stream = `BT /F1 12 Tf 72 720 Td (${escaped}) Tj ET`;
+function textPdf(...pages: string[]): Buffer {
+  const pageTexts = pages.length > 0 ? pages : [''];
+  const fontObject = 3 + (pageTexts.length * 2);
+  const pageObjects = pageTexts.flatMap((text, index) => {
+    const escaped = text.replaceAll('\\', '\\\\').replaceAll('(', '\\(').replaceAll(')', '\\)');
+    const stream = `BT /F1 12 Tf 72 720 Td (${escaped}) Tj ET`;
+    const contentObject = 4 + (index * 2);
+    return [
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 ${fontObject} 0 R >> >> /Contents ${contentObject} 0 R >>`,
+      `<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`
+    ];
+  });
+  const kids = pageTexts.map((_, index) => `${3 + (index * 2)} 0 R`).join(' ');
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
-    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
-    `<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`,
+    `<< /Type /Pages /Kids [${kids}] /Count ${pageTexts.length} >>`,
+    ...pageObjects,
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'
   ];
   let body = '%PDF-1.4\n';
@@ -115,13 +124,23 @@ function docx(documentXml: string, relationships = ''): Buffer {
 export function applicationDocumentFixtures(): Record<string, ApplicationDocumentFixture> {
   const cvText = 'Synthetic CV for application-document E2E verification. No personal or provider data.';
   const coverText = 'Synthetic cover letter for application-document E2E verification.';
+  const substantialFirstPage = 'Synthetic substantial CV page one. Software delivery, Java, TypeScript, accessibility, testing, secure APIs, observability and incident response.';
+  const substantialSecondPage = 'Synthetic substantial CV page two. Measurable project evidence, education, qualifications and transferable skills. No personal or provider data.';
   const externalRelationship = '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId9" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="https://invalid.test/track" TargetMode="External"/></Relationships>';
   return {
     cvPdf: fixture('synthetic-cv.pdf', PDF_MIME, textPdf(cvText)),
     coverPdf: fixture('synthetic-cover-letter.pdf', PDF_MIME, textPdf(coverText)),
+    substantialMultiPagePdf: fixture(
+      'synthetic-substantial-two-page-cv.pdf',
+      PDF_MIME,
+      textPdf(substantialFirstPage, substantialSecondPage)
+    ),
     safeDocx: fixture('synthetic-cv.docx', DOCX_MIME, docx(cvText)),
     imageOnlyPdf: fixture('synthetic-image-only.pdf', PDF_MIME, textPdf('')),
+    unsupportedText: fixture('synthetic-cv.txt', 'text/plain', Buffer.from(cvText, 'utf8')),
+    emptyPdf: fixture('synthetic-empty.pdf', PDF_MIME, Buffer.alloc(0)),
     spoofedDocx: fixture('synthetic-spoofed.docx', DOCX_MIME, textPdf('not a DOCX package')),
+    mismatchedPdf: fixture('synthetic-mismatched.pdf', PDF_MIME, docx(cvText)),
     malformedPdf: fixture('synthetic-malformed.pdf', PDF_MIME, Buffer.from('%PDF-1.4\ntruncated', 'ascii')),
     oversizedPdf: fixture('synthetic-oversized.pdf', PDF_MIME, Buffer.alloc(10 * 1024 * 1024 + 1, 0x20)),
     externalRelationshipDocx: fixture('synthetic-external.docx', DOCX_MIME, docx(cvText, externalRelationship)),

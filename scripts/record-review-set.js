@@ -8,6 +8,7 @@ const parentWorkspace = process.env.JSC_WORKSPACE_ROOT
   ? path.resolve(process.env.JSC_WORKSPACE_ROOT)
   : path.resolve(e2eRoot, '..');
 const reviewSet = process.env.REVIEW_SET || 'final';
+const requestedClip = process.argv[2] || process.env.PROMO_CLIP;
 const reviewDir = path.resolve(repoRoot, 'demo-recordings', reviewSet);
 const webmDir = path.join(reviewDir, 'webm');
 const downloadDir = path.join(reviewDir, 'downloads');
@@ -40,6 +41,13 @@ const journeys = [
   { title: 'SUCCEED', featurePath: 'features/chapters/SUCCEED.feature' }
 ];
 
+const selectedJourneys = requestedClip
+  ? journeys.filter(journey => journey.title === requestedClip.toUpperCase())
+  : journeys;
+if (selectedJourneys.length === 0) {
+  throw new Error(`Unknown promo clip ${requestedClip}. Choose: ${journeys.map(journey => journey.title).join(', ')}`);
+}
+
 function run(command, args, options) {
   const startedAt = new Date().toISOString();
   const result = spawnSync(command, args, {
@@ -64,8 +72,9 @@ function run(command, args, options) {
 }
 
 function latestWebm(prefix, sinceMs) {
+  const safePrefix = `${prefix.toLowerCase()}-`;
   const files = fs.readdirSync(webmDir)
-    .filter((file) => file.startsWith(`${prefix}-`) && file.endsWith('.webm'))
+    .filter((file) => file.toLowerCase().startsWith(safePrefix) && file.endsWith('.webm'))
     .map((file) => {
       const fullPath = path.join(webmDir, file);
       return { file, fullPath, mtimeMs: fs.statSync(fullPath).mtimeMs };
@@ -130,12 +139,12 @@ function probeMedia(filePath) {
 }
 
 function pruneUntitledWebms() {
-  const expectedPrefixes = journeys.map((journey) => `${journey.title}-`);
+  const expectedPrefixes = journeys.map((journey) => `${journey.title.toLowerCase()}-`);
   const removed = [];
 
   for (const file of fs.readdirSync(webmDir)) {
     if (!file.endsWith('.webm')) continue;
-    if (expectedPrefixes.some((prefix) => file.startsWith(prefix))) continue;
+    if (expectedPrefixes.some((prefix) => file.toLowerCase().startsWith(prefix))) continue;
 
     fs.rmSync(path.join(webmDir, file), { force: true });
     removed.push(file);
@@ -177,9 +186,9 @@ if (process.env.SKIP_DEMO_PREP !== 'true') {
   if (report.fixturePreparation.exitCode !== 0) {
     report.finishedAt = new Date().toISOString();
     report.summary = {
-      total: journeys.length,
+      total: selectedJourneys.length,
       recorded: 0,
-      failed: journeys.length,
+      failed: selectedJourneys.length,
       blocker: 'fixture_preparation_failed'
     };
     fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
@@ -187,7 +196,7 @@ if (process.env.SKIP_DEMO_PREP !== 'true') {
   }
 }
 
-for (const journey of journeys) {
+for (const journey of selectedJourneys) {
   const startedMs = Date.now();
   const env = {
     ...baseEnv,

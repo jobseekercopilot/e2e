@@ -1,4 +1,4 @@
-@security @application-documents
+@security @application-documents @core-regression
 Feature: Application document ownership is enforced at the browser boundary
 
   @state:CROSS_USER_SECURITY

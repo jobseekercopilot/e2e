@@ -23,9 +23,9 @@ Then('the current beta page has no automated accessibility violations', async fu
 
 When('he attempts to continue registration using only the keyboard', async function (this: JobSeekerWorld) {
   const page = pageFor(this);
-  const next = page.getByRole('button', { name: /next step/i });
-  await next.focus();
-  await next.press('Enter');
+  const createAccount = page.getByRole('button', { name: 'Create account', exact: true });
+  await createAccount.focus();
+  await createAccount.press('Enter');
 });
 
 Then('registration validation focus moves to the error summary', async function (this: JobSeekerWorld) {
@@ -44,38 +44,42 @@ When('he completes registration using only the keyboard', async function (this: 
     }
   });
 
-  await page.getByLabel(/full name/i).fill(this.demoUser.fullName);
-  await page.getByLabel(/contact email address/i).fill(this.demoUser.email);
-  const password = page.getByLabel(/^password$/i);
+  const registrationForm = page.locator('#mode-create-segment form');
+  await registrationForm.getByLabel(/full name/i).fill(this.demoUser.fullName);
+  await registrationForm.getByLabel(/email address/i).fill(this.demoUser.email);
+  const password = registrationForm.getByLabel(/^password$/i);
   await password.fill(this.demoUser.password);
   await password.press('Enter');
-  await expect(page.getByRole('heading', { name: /professional history/i })).toBeVisible();
+  await password.press('Enter').catch(() => undefined);
+  await expect(page.getByRole('heading', { name: /find the right opportunities/i })).toBeVisible();
   await new AxeBuilder({ page }).analyze().then(result => assert.equal(result.violations.length, 0));
 
-  const skills = page.getByLabel('Core Skills');
-  await skills.fill(this.demoUser.skills[0] ?? 'TypeScript');
-  await skills.press('Enter');
-  const roles = page.getByLabel(/target roles/i);
+  const roles = page.getByLabel('Target roles', { exact: true });
   await roles.fill(this.demoUser.targetRoles[0] ?? 'Software Developer');
-  await roles.press('Enter');
-  const next = page.getByRole('button', { name: /next step/i });
-  await next.focus();
-  await next.press('Enter');
-  await expect(page.getByRole('heading', { name: /job search preferences/i })).toBeVisible();
+  const continueSetup = page.getByRole('button', { name: 'Continue', exact: true });
+  await continueSetup.focus();
+  await continueSetup.press('Enter');
+  await expect(page.getByRole('heading', { name: /where do you want to work/i })).toBeVisible();
   await new AxeBuilder({ page }).analyze().then(result => assert.equal(result.violations.length, 0));
 
-  const location = page.getByLabel(/home location/i);
+  const location = page.getByLabel(/search postcode/i);
   await location.fill(this.demoUser.homeLocation);
-  const suggestion = page.getByTestId('registration-location-suggestions').getByRole('button').first();
+  const suggestion = page.getByRole('listbox', { name: /matching uk locations/i })
+    .getByRole('option')
+    .first();
   await expect(suggestion).toBeVisible();
   await suggestion.focus();
   await suggestion.press('Enter');
 
-  const submit = page.getByRole('button', { name: /create profile/i }).last();
-  await submit.focus();
-  await submit.press('Enter');
-  await submit.press('Enter').catch(() => undefined);
-  await expect(page.getByRole('heading', { name: 'Claimant Profile', exact: true })).toBeVisible();
+  await continueSetup.focus();
+  await continueSetup.press('Enter');
+  await expect(page.getByRole('heading', { name: /how would you like to work/i })).toBeVisible();
+  await page.getByRole('checkbox').first().check();
+  const finishSetup = page.getByRole('button', { name: 'Finish setup', exact: true });
+  await finishSetup.focus();
+  await finishSetup.press('Enter');
+  await finishSetup.press('Enter').catch(() => undefined);
+  await expect(page.getByTestId('job-search-preferences')).toBeVisible();
 });
 
 Then('only one registration request was sent', function (this: JobSeekerWorld) {
@@ -84,23 +88,26 @@ Then('only one registration request was sent', function (this: JobSeekerWorld) {
 
 When('he edits his profile while location search is unavailable', async function (this: JobSeekerWorld) {
   const page = pageFor(this);
-  await page.route('**/api/locations?*', async route => {
-    await new Promise(resolve => setTimeout(resolve, 350));
+  await page.route('**/api/v2/locations/autocomplete*', async route => {
+    // Keep the loading announcement observable long enough for assistive-
+    // technology assertions before returning the deterministic failure.
+    await new Promise(resolve => setTimeout(resolve, 1_500));
     await route.fulfill({
       status: 503,
       contentType: 'application/json',
       body: JSON.stringify({ success: false, locations: [], message: 'private upstream detail' })
     });
   });
-  const edit = page.getByRole('button', { name: /^edit$/i });
+  const edit = page.getByRole('button', { name: /edit location and commute/i });
   await edit.focus();
   await edit.press('Enter');
-  await page.getByTestId('profile-home-location-input').fill('Unavailable place');
+  await page.getByLabel(/town or postcode/i).fill('Unavailable place');
+  await expect(page.getByTestId('profile-location-status'))
+    .toContainText('Searching locations');
 });
 
 Then('loading and safe unavailable location feedback are announced', async function (this: JobSeekerWorld) {
   const status = pageFor(this).getByTestId('profile-location-status');
-  await expect(status).toContainText('Searching locations');
   await expect(status).toContainText('Location search is temporarily unavailable');
   await expect(status).not.toContainText('private upstream detail');
   await expect(status).toHaveAttribute('role', 'alert');
@@ -111,22 +118,28 @@ When('he saves the profile twice in rapid succession', async function (this: Job
   // Preserve the failure feedback proof but submit a contract-valid postcode;
   // provider unavailability must not turn this duplicate-write check into a
   // backend validation test.
-  await page.getByTestId('profile-home-location-input').fill('RG1 1AA');
+  await page.unroute('**/api/v2/locations/autocomplete*');
+  await page.getByLabel(/town or postcode/i).fill('RG1 1AA');
+  const suggestion = page.getByRole('listbox', { name: /matching uk locations/i })
+    .getByRole('option')
+    .first();
+  await expect(suggestion).toBeVisible();
+  await suggestion.click();
   page.on('request', request => {
-    if (request.method() === 'PUT' && new URL(request.url()).pathname === '/api/auth/profile') {
+    if (request.method() === 'PATCH' && new URL(request.url()).pathname === '/api/auth/profile') {
       this.profileUpdateRequestCount += 1;
     }
   });
   await page.route('**/api/auth/profile', async route => {
-    if (route.request().method() !== 'PUT') return route.continue();
+    if (route.request().method() !== 'PATCH') return route.continue();
     await new Promise(resolve => setTimeout(resolve, 350));
     await route.continue();
   });
-  const save = page.locator('#btn-save-inline');
+  const save = page.getByRole('button', { name: 'Save this section', exact: true });
   await save.focus();
   await save.press('Enter');
   await save.press('Enter').catch(() => undefined);
-  await expect(page.getByRole('button', { name: /^edit$/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /edit location and commute/i })).toBeVisible();
 });
 
 Then('only one profile update request was sent', function (this: JobSeekerWorld) {

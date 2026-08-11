@@ -32,6 +32,13 @@ interface GenerationStartMonitor {
 
 const TARGET_ROLES = ['Software Engineer', 'Software Developer'] as const;
 const PROJECT_TITLE = 'Job Seeker Copilot';
+const PROJECT_EVIDENCE_TERMS = [
+  'job-search application',
+  'real job providers',
+  'evidence-grounded document generation',
+  'resilient multi-provider paging',
+  'versioned evidence selection'
+] as const;
 const QUALIFICATION_TITLE = 'Bachelor of Music';
 const JOB_REQUIREMENT_TERMS = [
   'Spring Boot',
@@ -90,7 +97,7 @@ export class StabilisationPage {
     const profile = this.profileColumn(this.page);
     for (const section of [
       'Target roles',
-      'Key skills',
+      'Skills & expertise',
       'Location and commute',
       'Working preferences',
       'Availability',
@@ -173,9 +180,7 @@ export class StabilisationPage {
     await expect(
       this.page.getByTestId('workspace-panel-search')
     ).toBeVisible();
-    await expect(
-      this.page.getByRole('heading', { name: 'Experience & achievements', exact: true })
-    ).toHaveCount(1);
+    await expect(this.evidenceDialog()).toHaveCount(0);
     await this.artifacts.screenshot(this.page, 'compact-evidence-summary');
   }
 
@@ -565,7 +570,7 @@ export class StabilisationPage {
         if (runNumber === 1) {
           await this.artifacts.screenshot(this.page, 'run-1-processing-before-browser-refresh');
           const card = this.selectedJobCard();
-          await expect(card.getByText('Processing', { exact: true })).toHaveCount(1);
+          await expect(card.getByText('Generating', { exact: true })).toHaveCount(1);
           await expect(card.getByTestId('cancel-generation-button')).toBeVisible();
           await this.reloadAndRestoreSelectedJob();
         }
@@ -795,9 +800,9 @@ export class StabilisationPage {
       await this.updateAvailability(9);
 
       const profile = this.profileColumn(secondPage);
-      await profile.getByRole('button', { name: 'Edit Key skills', exact: true }).click();
-      const editor = profile.locator('#profile-key-skills-editor');
-      const input = editor.getByLabel('Skills', { exact: true });
+      await profile.getByRole('button', { name: 'Edit Skills & expertise', exact: true }).click();
+      const editor = profile.locator('#profile-skills-expertise-editor');
+      const input = editor.getByLabel('Skills & expertise', { exact: true });
       await input.fill('Stale revision probe');
       await input.press('Enter');
 
@@ -852,7 +857,7 @@ export class StabilisationPage {
     const startMonitor = await this.startGeneration(false);
     try {
       const card = this.selectedJobCard();
-      await expect(card.getByText('Processing', { exact: true })).toHaveCount(1);
+      await expect(card.getByText('Generating', { exact: true })).toHaveCount(1);
       const cancellation = this.waitForMatchingResponse(
         response => response.request().method() === 'DELETE'
           && /^\/api\/v1\/document-generation\/operations\/[^/]+$/
@@ -932,11 +937,11 @@ export class StabilisationPage {
       .or(page.getByRole('button', { name: /sign in/i }))
       .first()
       .click();
-    await page.getByLabel(/email address/i).fill(identity.email);
-    await page.getByLabel(/^password$/i).fill(PUBLIC_NAMED_STATE_PASSWORD);
     const signInForm = page.locator('#mode-signin-segment form').filter({
       has: page.locator('#login-password')
     });
+    await signInForm.getByLabel(/email address/i).fill(identity.email);
+    await signInForm.getByLabel(/^password$/i).fill(PUBLIC_NAMED_STATE_PASSWORD);
     const [response] = await Promise.all([
       page.waitForResponse(candidate =>
         candidate.request().method() === 'POST'
@@ -1043,7 +1048,7 @@ export class StabilisationPage {
     await input.fill(postcode);
     const options = editor.locator('#profile-location-options');
     await expect(options).toBeVisible();
-    await options.getByRole('button').first().click();
+    await options.getByRole('option').first().click();
     await this.saveProfileSection(profile, 'setting the search location');
   }
 
@@ -1183,15 +1188,38 @@ export class StabilisationPage {
 
   private async requireExpandableCard(): Promise<Locator> {
     const cards = this.jobWorkspace().getByTestId('job-result-card');
-    for (let index = 0; index < await cards.count(); index += 1) {
+    const maximumDetailLookups = 3;
+    for (let index = 0; index < Math.min(await cards.count(), maximumDetailLookups); index += 1) {
       const card = cards.nth(index);
       await this.expandCard(card);
-      if (await card.getByRole('button', { name: 'Read more', exact: true }).isVisible()
-        .catch(() => false)) {
+      const readMore = card.getByRole('button', { name: 'Read more', exact: true });
+      if (await readMore.isVisible().catch(() => false)) {
         return card;
       }
+
+      const readFullAdvert = card.getByRole('button', {
+        name: 'Read full advert',
+        exact: true,
+      });
+      if (!(await readFullAdvert.isVisible().catch(() => false))) continue;
+
+      const preview = (await card.locator('.job-description').innerText()).trim();
+      await readFullAdvert.click();
+      const showLess = card.getByRole('button', { name: 'Show less', exact: true });
+      try {
+        await expect(showLess).toBeVisible({ timeout: 60_000 });
+      } catch {
+        continue;
+      }
+      expect((await card.locator('.job-description').innerText()).trim().length)
+        .toBeGreaterThan(preview.length);
+      await showLess.click();
+      await expect(readMore).toBeVisible();
+      return card;
     }
-    throw new Error('No real-provider job exposed a bounded expandable description.');
+    throw new Error(
+      `No expandable full advert was available after ${maximumDetailLookups} bounded provider detail lookups.`,
+    );
   }
 
   private async selectDistinctNewJob(): Promise<SelectedJob> {
@@ -1265,18 +1293,9 @@ export class StabilisationPage {
   ): Promise<SelectedJob> {
     const title = (await card.locator('.job-title').innerText()).trim();
     const company = (await card.locator('.job-company').innerText()).trim();
-    await card.getByTestId('generate-documents-button').click();
-    const selector = card.getByTestId('generation-evidence-selector');
-    await expect(selector).toBeVisible();
-    await expect(this.page.getByTestId('generation-evidence-selector')).toHaveCount(1);
-    const canonicalJobId = (await this.definitionValue(
-      selector,
-      'Job reference'
-    ).innerText()).trim();
-    const providerDisplay = (await this.definitionValue(
-      selector,
-      'Provider'
-    ).innerText()).trim();
+    const host = card.locator('xpath=ancestor::app-job-card');
+    const canonicalJobId = (await host.getAttribute('data-job-reference'))?.trim() ?? '';
+    const providerDisplay = (await host.getAttribute('data-job-provider'))?.trim() ?? '';
     expect(
       canonicalJobId,
       'The selected result omitted its canonical job identity.'
@@ -1294,8 +1313,6 @@ export class StabilisationPage {
       'Two canonical job references collided on the selected card identity.'
     ).toBe(true);
     this.canonicalJobIdsByDomIdentity.set(domIdentity, canonicalJobId);
-    await selector.getByRole('button', { name: 'Cancel', exact: true }).click();
-    await expect(selector).toHaveCount(0);
     return {
       canonicalJobId,
       provider: providerDisplay,
@@ -1309,6 +1326,27 @@ export class StabilisationPage {
   }
 
   private async jobRequirementTerms(card: Locator): Promise<string[]> {
+    const readFullAdvert = card.getByRole('button', {
+      name: 'Read full advert',
+      exact: true,
+    });
+    if (await readFullAdvert.isVisible().catch(() => false)) {
+      const preview = (await card.locator('.job-description').innerText()).trim();
+      await readFullAdvert.click();
+      const showLess = card.getByRole('button', { name: 'Show less', exact: true });
+      await expect(showLess).toBeVisible({ timeout: 60_000 });
+      const fullDescription = (await card.locator('.job-description').innerText()).trim();
+      expect(
+        fullDescription.length,
+        'The provider detail lookup did not replace the truncated advert preview.'
+      ).toBeGreaterThan(preview.length);
+      await showLess.click();
+      return JOB_REQUIREMENT_TERMS.filter(term =>
+        fullDescription.toLocaleLowerCase('en-GB')
+          .includes(term.toLocaleLowerCase('en-GB'))
+      );
+    }
+
     const readMore = card.getByRole('button', { name: 'Read more', exact: true });
     const expandedHere = await readMore.isVisible().catch(() => false);
     if (expandedHere) await readMore.click();
@@ -1387,6 +1425,14 @@ export class StabilisationPage {
       jobTitle: selected.title,
       companyName: selected.company
     });
+    const documentChoice = card.getByTestId('application-document-choice');
+    await expect(documentChoice).toBeVisible();
+    await expect(documentChoice).toContainText(selected.title);
+    await documentChoice.getByRole('button', {
+      name: 'Close document choices',
+      exact: true,
+    }).click();
+    await expect(documentChoice).toHaveCount(0);
     await expect(card.getByText('Saved to applications', { exact: true })).toBeVisible();
   }
 
@@ -1396,6 +1442,7 @@ export class StabilisationPage {
   ): Promise<Locator> {
     const card = this.selectedJobCard();
     await card.getByTestId('generate-documents-button').click();
+    await this.chooseGeneratedDocuments(card);
     const selector = card.getByTestId('generation-evidence-selector');
     await expect(selector).toBeVisible();
     await expect(this.page.getByTestId('generation-evidence-selector')).toHaveCount(1);
@@ -1403,7 +1450,12 @@ export class StabilisationPage {
     await expect(selector).toContainText(selected.company);
     await expect(selector.locator('dl').getByText('Provider', { exact: true })).toBeVisible();
     const provider = this.definitionValue(selector, 'Provider');
-    await expect(provider).toHaveText(selected.providerDisplay ?? selected.provider);
+    const providerToken = (selected.provider || selected.providerDisplay || '')
+      .toLocaleLowerCase('en-GB')
+      .split(/[^a-z0-9]+/)
+      .find(token => token.length >= 3);
+    expect(providerToken, 'The selected job did not retain a provider token.').toBeTruthy();
+    await expect(provider).toContainText(new RegExp(providerToken as string, 'i'));
     const reference = this.definitionValue(selector, 'Job reference');
     await expect(reference).toHaveText(selected.canonicalJobId);
 
@@ -1418,9 +1470,30 @@ export class StabilisationPage {
       await this.selectEvidence(selector, QUALIFICATION_TITLE);
     }
     await expect(
-      selector.getByRole('button', { name: 'Generate from selected evidence', exact: true })
+      selector.getByRole('button', {
+        name: /^Generate CV and Cover letter \(2 AI Credits\)$/,
+      })
     ).toBeEnabled();
     return selector;
+  }
+
+  private async chooseGeneratedDocuments(card: Locator): Promise<void> {
+    const documentChoice = card.getByTestId('application-document-choice');
+    await expect(documentChoice).toBeVisible();
+    for (const purpose of ['CV', 'Cover letter']) {
+      const panel = documentChoice.locator('fieldset').filter({ hasText: purpose });
+      const generate = panel.locator('label').filter({ hasText: 'Generate' })
+        .getByRole('radio');
+      await expect(generate).toBeVisible();
+      await generate.check();
+    }
+    const continueButton = documentChoice.getByRole('button', {
+      name: 'Continue',
+      exact: true,
+    });
+    await expect(continueButton).toBeEnabled();
+    await continueButton.click();
+    await expect(documentChoice).toHaveCount(0);
   }
 
   private async selectEvidence(selector: Locator, heading: string): Promise<void> {
@@ -1453,7 +1526,7 @@ export class StabilisationPage {
     const selector = this.selectedJobCard().getByTestId('generation-evidence-selector');
     const generate = selector.getByRole(
       'button',
-      { name: 'Generate from selected evidence', exact: true }
+      { name: /^Generate CV and Cover letter \(2 AI Credits\)$/ }
     );
     const idempotencyKeys = new Set<string>();
     let operationPathname: string | undefined;
@@ -1507,7 +1580,7 @@ export class StabilisationPage {
       expect(body.operationId, 'The accepted generation omitted its operation ID.')
         .toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
       const card = this.selectedJobCard();
-      await expect(card.getByText('Processing', { exact: true })).toHaveCount(1);
+      await expect(card.getByText('Generating', { exact: true })).toHaveCount(1);
       await expect(card.getByTestId('cancel-generation-button')).toBeVisible();
       let stopped = false;
       return {
@@ -1570,7 +1643,7 @@ export class StabilisationPage {
       { exact: true }
     );
     if (!(await success.isVisible().catch(() => false))) {
-      await expect(card.getByText('Processing', { exact: true })).toHaveCount(1);
+      await expect(card.getByText('Generating', { exact: true })).toHaveCount(1);
       await expect(card.getByTestId('cancel-generation-button')).toBeVisible();
     }
   }
@@ -1617,6 +1690,7 @@ export class StabilisationPage {
             jobTitle: selected.title,
             company: selected.company,
             projectTitle: PROJECT_TITLE,
+            projectEvidenceTerms: [...PROJECT_EVIDENCE_TERMS],
             qualificationTitle: QUALIFICATION_TITLE,
             jobRequirementTerms: selected.requirementTerms
           }

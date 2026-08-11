@@ -1,4 +1,4 @@
-@demo
+@demo @promo @capacity-workload
 Feature: DISCOVER
 
   Scenario: Alex discovers relevant software developer roles

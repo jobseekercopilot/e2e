@@ -74,6 +74,18 @@ npm run test:ci
 npm run verify
 ```
 
+Against the healthy isolated fixture stack, the product-confidence entry points are:
+
+```bash
+npm run test:critical
+npm run test:regression
+```
+
+`test:critical` is the fast beta usability gate. `test:regression` runs the
+ordinary smoke, E2E, security and accessibility browser profiles without the
+separately authorised live-provider/OpenAI stabilisation scenarios. See the
+[audit](docs/PRODUCT_CONFIDENCE_AUDIT.md) and [coverage matrix](docs/COVERAGE_MATRIX.md).
+
 The authoritative suite uses one primary tag per feature:
 
 | Profile | Primary tag | Command | Purpose |
@@ -269,6 +281,12 @@ JSC_WORKSPACE_ROOT=/path/to/job-seeker-copilot-parent-workspace \
 npm run record
 ```
 
+Record one chapter, for example DISCOVER, with:
+
+```bash
+npm run record:clip -- DISCOVER
+```
+
 The optional parent workspace is used only for the preserved demo fixture
 preparation command. Generated review media stays under this repository's
 ignored `demo-recordings/` directory. Set `SKIP_DEMO_PREP=true` only after an
@@ -291,6 +309,19 @@ The output folder is cleaned at the start of each recording run:
 ```text
 demo-recordings/final/
 ```
+
+Capacity browser sessions reuse the fixture-backed DISCOVER page objects and
+are deliberately restricted to loopback port 3100:
+
+```bash
+ALLOW_CAPACITY_E2E=true CAPACITY_FIXTURE_CONFIRMED=true \
+  npm run test:capacity -- --users 5 --iterations 1 \
+  --output test-results/capacity/workload.json
+```
+
+Infrastructure normally invokes this command while collecting Docker stats.
+It represents concurrent active browser sessions using one deterministic
+registered fixture identity; it is not a claim about concurrent registrations.
 
 ## Journey Files
 

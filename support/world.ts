@@ -12,11 +12,15 @@ import { JobSearchPage, type JobSearchFixture } from '../pages/JobSearchPage';
 import { NavigationPage } from '../pages/NavigationPage';
 import { RegisterPage } from '../pages/RegisterPage';
 import { PasswordRecoveryPage } from '../pages/PasswordRecoveryPage';
+import { ProductShowcasePage } from '../pages/ProductShowcasePage';
+import { ReportingReconciliationPage } from '../pages/ReportingReconciliationPage';
 import { StabilisationPage } from '../pages/StabilisationPage';
 import { e2eConfig } from './config';
 import { createRunId } from './synthetic-data';
 import type { NamedState, NamedStateDefinition, SystemDataClient } from './system-data';
 import type { ZeroCreditGenerationFirewall } from './stabilisation-runtime-safety';
+import type { BrowserNetworkSample } from './artifacts';
+import type { ShowcaseCandidate } from './showcase-data';
 
 export interface QualificationFixture {
   name: string;
@@ -54,12 +58,19 @@ export class JobSeekerWorld extends World {
   jobSearch?: JobSearchFixture;
   documentGenerationAttempted?: 'applicationDocuments';
   documentGenerationSuccessShown = false;
+  showcaseCandidate?: ShowcaseCandidate;
+  showcaseVideoStartedAtMs?: number;
+  readonly showcaseMarkers: Array<{ section: string; seconds: number }> = [];
   demoDownloads: string[] = [];
   readonly runId = createRunId();
   readonly syntheticUsers = new Set<string>();
   registrationRequestCount = 0;
   profileUpdateRequestCount = 0;
   tracingStarted = false;
+  scenarioStartedAt = '';
+  readonly consoleErrors: string[] = [];
+  readonly networkErrors: BrowserNetworkSample[] = [];
+  readonly networkSamples: BrowserNetworkSample[] = [];
   namedState?: NamedState;
   namedStateDefinition?: NamedStateDefinition;
   systemDataClient?: SystemDataClient;
@@ -76,6 +87,8 @@ export class JobSeekerWorld extends World {
   applicationTrackerPage?: ApplicationTrackerPage;
   aiCreditPage?: AiCreditPage;
   passwordRecoveryPage?: PasswordRecoveryPage;
+  productShowcasePage?: ProductShowcasePage;
+  reportingReconciliationPage?: ReportingReconciliationPage;
   stabilisationPage?: StabilisationPage;
   applicationDocumentJourneyPage?: ApplicationDocumentJourneyPage;
   applicationDocumentChoices?: Record<DocumentPurpose, DocumentChoice>;
@@ -99,6 +112,8 @@ export class JobSeekerWorld extends World {
     this.aiCreditPage = new AiCreditPage(page);
     this.applicationDocumentJourneyPage = new ApplicationDocumentJourneyPage(page, this.config.baseUrl);
     this.passwordRecoveryPage = new PasswordRecoveryPage(page, this.config.baseUrl);
+    this.productShowcasePage = new ProductShowcasePage(page);
+    this.reportingReconciliationPage = new ReportingReconciliationPage(page);
     this.stabilisationPage = new StabilisationPage(
       page,
       this.config.baseUrl,
@@ -110,6 +125,19 @@ export class JobSeekerWorld extends World {
 
   registerSyntheticUser(email: string): void {
     this.syntheticUsers.add(email);
+  }
+
+  markShowcaseSection(section: string): void {
+    if (this.showcaseVideoStartedAtMs === undefined) {
+      throw new Error('The showcase video clock was not initialised.');
+    }
+    if (!/^[A-Z][A-Z0-9_-]{1,40}$/.test(section)) {
+      throw new Error(`Invalid showcase section: ${section}`);
+    }
+    this.showcaseMarkers.push({
+      section,
+      seconds: (Date.now() - this.showcaseVideoStartedAtMs) / 1000
+    });
   }
 }
 

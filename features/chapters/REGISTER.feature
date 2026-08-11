@@ -1,4 +1,4 @@
-@demo
+@demo @promo
 Feature: REGISTER
 
   Scenario: Alex creates his Job Seeker Copilot workspace

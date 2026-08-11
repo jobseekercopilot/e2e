@@ -66,6 +66,12 @@ export const e2eConfig = {
   saveDemoSession,
   storageState: assertRelativeArtifactPath('STORAGE_STATE', process.env.STORAGE_STATE ?? '.auth/alex-taylor-session.json', '.auth'),
   artifactDir: assertRelativeArtifactPath('ARTIFACT_DIR', process.env.ARTIFACT_DIR ?? 'test-results/failures', 'test-results'),
+  capacityResultDir: assertRelativeArtifactPath(
+    'CAPACITY_RESULT_DIR',
+    process.env.CAPACITY_RESULT_DIR ?? 'test-results/capacity/workers',
+    'test-results/capacity'
+  ),
+  capacityFixtureConfirmed: readBoolean('CAPACITY_FIXTURE_CONFIRMED', false),
   maxFailureArtifacts: readNumber('MAX_FAILURE_ARTIFACTS', 20),
   cleanupEnabled: readBoolean('E2E_CLEANUP_ENABLED', false),
   cleanupBaseUrl: process.env.E2E_CLEANUP_BASE_URL,
@@ -98,6 +104,11 @@ export const e2eConfig = {
   typingDelayMs: readNumber('TYPING_DELAY_MS', 65),
   demoBufferMs: readNumber('DEMO_BUFFER_MS', 2000),
   demoScrollMs: readNumber('DEMO_SCROLL_MS', 650),
+  showcaseTimelinePath: assertRelativeArtifactPath(
+    'SHOWCASE_TIMELINE_PATH',
+    process.env.SHOWCASE_TIMELINE_PATH ?? 'demo-recordings/final/showcase-timeline.json',
+    'demo-recordings'
+  ),
   videoName: process.env.VIDEO_NAME ?? 'registration-demo'
 };
 

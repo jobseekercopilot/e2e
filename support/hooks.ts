@@ -9,6 +9,8 @@ import {
   makeArtifactPrivate,
   pruneArtifacts,
   safeArtifactStem,
+  safeRequestUrl,
+  writeCapacityScenarioReport,
   writeFailureReport
 } from './artifacts';
 import { cleanupSyntheticUser } from './cleanup';
@@ -33,12 +35,22 @@ Before(async function (this: JobSeekerWorld, scenario) {
     return;
   }
   const tags = scenario.pickle.tags.map(tag => tag.name);
+  const capacityWorkload = tags.includes('@capacity-workload');
+  if (capacityWorkload && !e2eConfig.capacityFixtureConfirmed) {
+    throw new Error('Capacity workloads require CAPACITY_FIXTURE_CONFIRMED=true after infrastructure preflight.');
+  }
+  this.scenarioStartedAt = new Date().toISOString();
+  this.consoleErrors.length = 0;
+  this.networkErrors.length = 0;
+  this.networkSamples.length = 0;
   enforceStabilisationScenarioSafety(tags, e2eConfig);
   const state = parseNamedStateTag(tags);
   if (e2eConfig.profile !== 'demo' && !state) {
     throw new Error('Every stateful beta scenario must declare one @state:<NAME> tag.');
   }
-  if (state) {
+  // The capacity orchestrator prepares DEMO_READY exactly once. Concurrent
+  // browser workers must not race by resetting/reseeding the same fixture.
+  if (state && !capacityWorkload) {
     const lifecycleConfig = requireLifecycleConfig(e2eConfig, state, this.runId);
     this.namedState = state;
     this.systemDataClient = new SystemDataClient(lifecycleConfig);
@@ -53,6 +65,32 @@ Before(async function (this: JobSeekerWorld, scenario) {
     this.tracingStarted = true;
   }
   const page = await createPage(this.context);
+  if (tags.includes('@showcase')) this.showcaseVideoStartedAtMs = Date.now();
+  const requestStartedAt = new WeakMap<object, number>();
+  page.on('request', request => requestStartedAt.set(request, Date.now()));
+  page.on('console', message => {
+    if (message.type() === 'error') this.consoleErrors.push(message.text());
+  });
+  page.on('pageerror', error => this.consoleErrors.push(error.message));
+  page.on('requestfailed', request => {
+    this.networkErrors.push({
+      method: request.method(),
+      url: safeRequestUrl(request.url()),
+      failure: request.failure()?.errorText ?? 'request failed'
+    });
+  });
+  page.on('response', response => {
+    const request = response.request();
+    const startedAt = requestStartedAt.get(request);
+    const sample = {
+      method: request.method(),
+      url: safeRequestUrl(response.url()),
+      status: response.status(),
+      ...(startedAt === undefined ? {} : { durationMs: Date.now() - startedAt })
+    };
+    if (tags.includes('@capacity-workload')) this.networkSamples.push(sample);
+    if (response.status() >= 400) this.networkErrors.push(sample);
+  });
   if (e2eConfig.profile === 'demo') await demoCursor.install(page);
   this.initialisePages(page);
 });
@@ -84,13 +122,58 @@ After(async function (this: JobSeekerWorld, scenario) {
       });
       await makeArtifactPrivate(screenshotPath);
       await this.attach(screenshot, 'image/png');
-      await writeFailureReport(artifactDirectory, artifactStem, e2eConfig.profile);
+      await writeFailureReport(artifactDirectory, artifactStem, e2eConfig.profile, {
+        scenario: scenario.pickle.name,
+        tags: scenario.pickle.tags.map(tag => tag.name),
+        startedAt: this.scenarioStartedAt,
+        finishedAt: new Date().toISOString(),
+        error: scenario.result?.message,
+        consoleErrors: this.consoleErrors,
+        networkErrors: this.networkErrors
+      });
+    });
+  }
+
+  if (scenario.pickle.tags.some(tag => tag.name === '@capacity-workload')) {
+    await attempt(async () => {
+      const reportDirectory = path.resolve(__dirname, '..', e2eConfig.capacityResultDir);
+      await writeCapacityScenarioReport(reportDirectory, artifactStem, {
+        schemaVersion: 1,
+        runId: this.runId,
+        scenario: scenario.pickle.name,
+        status: scenario.result?.status,
+        startedAt: this.scenarioStartedAt,
+        finishedAt: new Date().toISOString(),
+        responseCount: this.networkSamples.length,
+        errorCount: this.networkErrors.length,
+        consoleErrorCount: this.consoleErrors.length,
+        responses: this.networkSamples,
+        errors: this.networkErrors
+      });
     });
   }
 
   if (e2eConfig.profile === 'demo') {
     await attempt(async () => { await this.page?.waitForTimeout(e2eConfig.demoBufferMs); });
     if (this.page) await attempt(async () => { await demoCursor.remove(this.page!); });
+  }
+
+  if (scenario.pickle.tags.some(tag => tag.name === '@showcase')) {
+    await attempt(async () => {
+      if (this.showcaseVideoStartedAtMs === undefined) return;
+      if (!this.showcaseMarkers.some(marker => marker.section === 'END')) {
+        this.markShowcaseSection('END');
+      }
+      const timelinePath = path.resolve(__dirname, '..', e2eConfig.showcaseTimelinePath);
+      await fs.mkdir(path.dirname(timelinePath), { recursive: true });
+      await fs.writeFile(timelinePath, `${JSON.stringify({
+        schemaVersion: 1,
+        scenario: scenario.pickle.name,
+        status: scenario.result?.status,
+        startedAt: new Date(this.showcaseVideoStartedAtMs).toISOString(),
+        markers: this.showcaseMarkers
+      }, null, 2)}\n`, { mode: 0o600 });
+    });
   }
 
   if (this.context && e2eConfig.profile === 'demo' && e2eConfig.saveDemoSession && scenario.result?.status === Status.PASSED) {

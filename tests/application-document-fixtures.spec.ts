@@ -21,6 +21,8 @@ test('valid browser fixtures have the expected bounded envelopes', () => {
   expect(fixtures.cvPdf.bytes.subarray(0, 5).toString()).toBe('%PDF-');
   expect(fixtures.coverPdf.bytes.subarray(-6).toString()).toContain('%%EOF');
   expect(fixtures.safeDocx.bytes.readUInt32LE(0)).toBe(0x04034b50);
+  expect(fixtures.substantialMultiPagePdf.bytes.toString('latin1'))
+    .toContain('/Count 2');
   expect(fixtures.cvPdf.bytes.length).toBeLessThan(10 * 1024 * 1024);
   expect(fixtures.safeDocx.bytes.length).toBeLessThan(10 * 1024 * 1024);
 });
@@ -29,13 +31,19 @@ test('adversarial fixtures are distinct without embedding live malware', () => {
   const fixtures = applicationDocumentFixtures();
   const hashes = [
     fixtures.imageOnlyPdf,
+    fixtures.unsupportedText,
+    fixtures.emptyPdf,
     fixtures.spoofedDocx,
+    fixtures.mismatchedPdf,
     fixtures.malformedPdf,
     fixtures.oversizedPdf,
     fixtures.externalRelationshipDocx,
     fixtures.traversalDocx
   ].map(value => value.sha256);
   expect(new Set(hashes).size).toBe(hashes.length);
+  expect(fixtures.emptyPdf.bytes).toHaveLength(0);
+  expect(fixtures.unsupportedText.name).toMatch(/\.txt$/);
+  expect(fixtures.mismatchedPdf.bytes.readUInt32LE(0)).toBe(0x04034b50);
   expect(fixtures.oversizedPdf.bytes.length).toBe(10 * 1024 * 1024 + 1);
   expect(fixtures.externalRelationshipDocx.bytes.toString('latin1')).toContain('TargetMode="External"');
   expect(fixtures.traversalDocx.bytes.toString('latin1')).toContain('../escape.xml');

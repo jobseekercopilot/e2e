@@ -99,7 +99,7 @@ export class JobSearchPage extends BasePage {
 
     await this.startSpecialistApplication('Community Staff Nurse', {
       provider: 'NHS_JOBS',
-      externalJobId: 'nhs-fixture-1',
+      externalJobId: 'NHS-FIXTURE-1',
       listingUrl: 'https://www.jobs.nhs.uk/candidate/jobadvert/NHS-FIXTURE-1',
       attributionLabel: 'Vacancy source: NHS Jobs',
       attributionSourceUrl: 'https://www.jobs.nhs.uk/',

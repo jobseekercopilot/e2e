@@ -130,8 +130,10 @@ test('state tags and profile selection fail closed', () => {
     .toThrow('must request the PROVIDER_FAILURE');
   expect(() => requireLifecycleConfig({ ...base, profile: 'security' }, 'PROVIDER_FAILURE', 'run'))
     .toThrow('restricted to the provider-failure profile');
+  expect(requireLifecycleConfig({ ...base, profile: 'demo' }, 'REGISTRATION_CLEAN', 'run').baseUrl)
+    .toBe('http://localhost:9103');
   expect(() => requireLifecycleConfig({ ...base, profile: 'demo' }, 'EMPTY', 'run'))
-    .toThrow('only the DEMO_READY');
+    .toThrow('only DEMO_READY or REGISTRATION_CLEAN');
   expect(requireLifecycleConfig({ ...base, profile: 'e2e' }, 'DEMO_READY', 'run').baseUrl)
     .toBe('http://localhost:9103');
   expect(() => requireLifecycleConfig({ ...base, profile: 'security' }, 'DEMO_READY', 'run'))
