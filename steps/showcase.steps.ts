@@ -35,7 +35,14 @@ When(
     if (!this.showcaseCandidate || !this.applicationDocumentJourneyPage) throw new Error('Showcase journey was not initialised.');
     await this.productShowcasePage?.verifyLiveShowcaseRuntime();
     this.applicationDocumentChoices = { CV: 'GENERATE', COVER_LETTER: 'GENERATE' };
-    await this.applicationDocumentJourneyPage.startJourney('GENERATE', this.showcaseCandidate.selectedJob);
+    await this.applicationDocumentJourneyPage.startJourney(
+      'GENERATE',
+      this.showcaseCandidate.selectedJob,
+      {
+        confirmedGenerationEvidenceAlreadyVerified: true,
+        reuseCurrentSearchView: true,
+      },
+    );
     await this.applicationDocumentJourneyPage.chooseDocuments(this.applicationDocumentChoices);
     await this.applicationDocumentJourneyPage.completeGeneration(
       ['CV', 'COVER_LETTER'],

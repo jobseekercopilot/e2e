@@ -144,6 +144,32 @@ test('fails instead of auto-scrolling off-screen recording targets', async ({ pa
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
 });
 
+test('raises the promotional cursor inside an active modal overlay', async ({ page }) => {
+  const cursor = new PromotionalCursor({ enabled: true });
+  await page.setContent(`
+    <div class="cdk-overlay-container">
+      <div id="active-overlay" class="cdk-overlay-popover" popover="manual">
+        <div class="cdk-overlay-backdrop"></div>
+        <section id="experience-evidence-dialog">Experience and achievements</section>
+      </div>
+    </div>
+  `);
+  await page.locator('#active-overlay').evaluate(element => (element as HTMLElement).showPopover());
+  const dialog = page.locator('#experience-evidence-dialog');
+
+  await cursor.install(page);
+  await cursor.raiseAboveOverlay(dialog);
+
+  await expect(page.locator('.cdk-overlay-popover:popover-open > #promo-demo-cursor')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.__promoDemoCursor?.point()))
+    .toEqual(await cursor.currentPosition(page));
+
+  await page.locator('#active-overlay').evaluate(element => (element as HTMLElement).hidePopover());
+  await cursor.restore(page);
+
+  await expect(page.locator('html > #promo-demo-cursor')).toBeVisible();
+});
+
 declare global {
   interface Window {
     clicked?: boolean;

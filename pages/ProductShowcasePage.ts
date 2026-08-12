@@ -237,6 +237,7 @@ export class ProductShowcasePage extends BasePage {
     );
     const dialog = this.page.locator('#experience-evidence-dialog');
     await expect(dialog).toBeVisible();
+    await demoCursor.raiseAboveOverlay(dialog);
     const library = dialog.locator('app-evidence-library');
     await library.evaluate(element => {
       element.setAttribute('data-demo-focus', 'app-evidence-library');

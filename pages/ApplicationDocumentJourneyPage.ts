@@ -34,6 +34,11 @@ export interface PreferredJob {
   canonicalJobId?: string;
 }
 
+export interface JourneyStartOptions {
+  confirmedGenerationEvidenceAlreadyVerified?: boolean;
+  reuseCurrentSearchView?: boolean;
+}
+
 interface UploadOperation {
   operationId?: string;
   applicationId?: string;
@@ -84,17 +89,28 @@ export class ApplicationDocumentJourneyPage {
     });
   }
 
-  async startJourney(entryPoint: 'ADD' | 'GENERATE', preferredJob?: PreferredJob): Promise<void> {
+  async startJourney(
+    entryPoint: 'ADD' | 'GENERATE',
+    preferredJob?: PreferredJob,
+    options: JourneyStartOptions = {},
+  ): Promise<void> {
     this.walletBefore = await this.walletBalance();
-    await this.page.goto('/dashboard');
-    await this.demoClick(this.page.getByTestId('workspace-tab-search'));
+    if (options.reuseCurrentSearchView) {
+      await expect(this.page.getByTestId('workspace-panel-search')).toBeVisible();
+    } else {
+      await this.page.goto('/dashboard');
+      await this.demoClick(this.page.getByTestId('workspace-tab-search'));
+    }
     await this.ensureSearchResults(entryPoint, preferredJob);
     await expect(this.page.getByTestId('job-result-card').first()).toBeVisible({ timeout: 30_000 });
     this.selectedCard = await this.openJobCard(entryPoint, preferredJob);
     const action = this.selectedCard.getByTestId(
       entryPoint === 'ADD' ? 'track-application-button' : 'generate-documents-button'
     );
-    if (entryPoint === 'GENERATE') await this.ensureConfirmedGenerationEvidence();
+    if (entryPoint === 'GENERATE'
+      && !options.confirmedGenerationEvidenceAlreadyVerified) {
+      await this.ensureConfirmedGenerationEvidence();
+    }
     const createsApplication = await this.selectedCard.getByTestId('track-application-button')
       .isVisible().catch(() => false);
     const createResponse = createsApplication
@@ -104,7 +120,12 @@ export class ApplicationDocumentJourneyPage {
       : undefined;
     if (!createsApplication) this.applicationId = await this.applicationIdForCard(this.selectedCard);
     await expect(action).toBeEnabled();
-    await this.demoClick(action);
+    if (e2eConfig.demoRecording) {
+      await this.frameSelectedJobHeader(action);
+      await demoCursor.click(action);
+    } else {
+      await action.click();
+    }
     if (createResponse) {
       const response = await createResponse;
       expect(response.ok(), 'The tracked application must be created before document selection.').toBe(true);
@@ -199,6 +220,8 @@ export class ApplicationDocumentJourneyPage {
     await summary.getByRole('button', { name: 'Manage experience & achievements', exact: true }).click();
     const dialog = this.page.locator('#experience-evidence-dialog');
     await expect(dialog).toBeVisible();
+    await expect(dialog.getByText('Loading your evidence…', {exact: true}))
+      .toHaveCount(0, {timeout: 30_000});
     const confirmedCard = dialog.locator('article.evidence-card')
       .filter({ hasText: 'User confirmed' })
       .first();
@@ -392,7 +415,7 @@ export class ApplicationDocumentJourneyPage {
     const generationProgress = selectedCard.getByTestId('generation-progress');
     if (e2eConfig.demoRecording) {
       await expect(generationProgress).toBeVisible({ timeout: 10_000 });
-      await this.frameSelectedJobHeader(generationProgress);
+      await this.frameSelectedJobHeader();
       await this.page.waitForTimeout(1_200);
     }
     const expectedLabel = expectedPurposes.length === 2
@@ -434,15 +457,53 @@ export class ApplicationDocumentJourneyPage {
     await expect(locator).toBeChecked();
   }
 
-  private async frameSelectedJobHeader(focus: Locator): Promise<void> {
+  private async frameSelectedJobHeader(focus?: Locator): Promise<void> {
     const header = this.selectedJobCard().locator('.job-card-trigger');
-    await header.evaluate(element => element.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start',
-      inline: 'nearest',
-    }));
-    await this.page.waitForTimeout(e2eConfig.demoScrollMs + 120);
-    await demoCursor.moveTo(focus, { durationMs: 520 });
+    const point = await header.evaluate((element, topOffset) => {
+      const rect = element.getBoundingClientRect();
+      const startY = window.scrollY;
+      const targetY = Math.max(0, startY + rect.top - topOffset);
+      return {
+        targetY,
+        x: Math.min(Math.max(rect.left + rect.width * 0.72, 16), window.innerWidth - 16),
+        y: topOffset + Math.min(Math.max(rect.height / 2, 16), 48),
+      };
+    }, 116);
+    await Promise.all([
+      this.page.evaluate(({targetY, durationMs}) => new Promise<void>((resolve) => {
+        const startY = window.scrollY;
+        const deltaY = targetY - startY;
+        if (Math.abs(deltaY) < 2) {
+          resolve();
+          return;
+        }
+        const started = performance.now();
+        const step = (now: number): void => {
+          const progress = Math.min((now - started) / durationMs, 1);
+          const eased = progress < 0.5
+            ? 2 * progress * progress
+            : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+          window.scrollTo(0, startY + deltaY * eased);
+          if (progress < 1) requestAnimationFrame(step);
+          else resolve();
+        };
+        requestAnimationFrame(step);
+      }), {targetY: point.targetY, durationMs: e2eConfig.demoScrollMs}),
+      demoCursor.moveToPoint(this.page, {x: point.x, y: point.y}, e2eConfig.demoScrollMs),
+    ]);
+    await this.page.waitForTimeout(220);
+    const focusIsInViewport = focus
+      ? await focus.evaluate(element => {
+          const rect = element.getBoundingClientRect();
+          return rect.top >= 0
+            && rect.bottom <= window.innerHeight
+            && rect.left >= 0
+            && rect.right <= window.innerWidth;
+        }).catch(() => false)
+      : false;
+    if (focus && focusIsInViewport) {
+      await demoCursor.moveTo(focus, {durationMs: 420});
+    }
   }
 
   async assertApplication(choices: Record<DocumentPurpose, DocumentChoice>): Promise<void> {
