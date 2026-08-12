@@ -354,7 +354,9 @@ export class ApplicationDocumentJourneyPage {
       }
     }
     const confirmation = selector.getByLabel(/I have reviewed this and confirm/i);
-    if (await confirmation.isVisible().catch(() => false)) await this.demoCheck(confirmation);
+    if (await confirmation.count() > 0 && !await confirmation.isChecked()) {
+      await this.demoCheck(confirmation);
+    }
     const purposePanels = selector.locator('.purpose-panel');
     await expect(purposePanels).toHaveCount(expectedPurposes.length);
     for (let index = 0; index < expectedPurposes.length; index += 1) {
@@ -421,7 +423,8 @@ export class ApplicationDocumentJourneyPage {
       return;
     }
     if (await locator.isChecked()) return;
-    await this.demoClick(locator);
+    const label = locator.locator('xpath=ancestor::label[1]');
+    await this.demoClick(await label.count() > 0 ? label : locator);
     await expect(locator).toBeChecked();
   }
 
