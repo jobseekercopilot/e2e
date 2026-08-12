@@ -88,8 +88,8 @@ export class DocumentsPage extends BasePage {
 
     const saved: SavedDemoDownload[] = [];
     for (const specification of [
-      { type: 'CV', filename: 'alex-taylor-java-software-developer-cv', duration: 4_200 },
-      { type: 'Cover letter', filename: 'alex-taylor-java-software-developer-cover-letter', duration: 3_600 }
+      { type: 'CV', filename: 'alex-taylor-tailored-cv', duration: 5_600 },
+      { type: 'Cover letter', filename: 'alex-taylor-tailored-cover-letter', duration: 4_800 }
     ]) {
       const family = families.filter({ hasText: specification.type }).first();
       await this.intentionalScrollNearCenter(family);

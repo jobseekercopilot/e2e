@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
+import { e2eConfig } from '../support/config';
 import { demoCursor } from '../support/demo-cursor';
 import type { ShowcaseCandidate, ShowcaseEvidence } from '../support/showcase-data';
 import { BasePage } from './base.page';
@@ -69,9 +70,13 @@ export class ProductShowcasePage extends BasePage {
       await this.clickFramed(findJobs);
       expect((await response).ok(), 'The showcase job search must succeed.').toBeTruthy();
     }
-    const card = this.selectedJobCard(candidate);
-    await expect(card, `The showcase job ${candidate.selectedJob.title} was not returned.`)
+    const card = this.configuredShowcaseJobCard(candidate, results);
+    await expect(card, 'No suitable showcase job was returned.')
       .toBeVisible({ timeout: 30_000 });
+    if (e2eConfig.allowRealProviderE2e) {
+      await expect(this.page.getByText('Real providers', { exact: true }).first()).toBeVisible();
+      await this.captureLiveJobIdentity(card, candidate);
+    }
     await this.intentionalScrollNearTop(card, 116);
     await this.spotlight(card);
     await this.pauseAfterFeature();
@@ -81,6 +86,19 @@ export class ProductShowcasePage extends BasePage {
     }
     await expect(card.getByText(/Job Description|Generate CV|Generate Application/i).first())
       .toBeVisible();
+    if (e2eConfig.allowRealProviderE2e) {
+      await expect(card.getByTestId('track-application-button')).toBeEnabled();
+      await expect(card.getByTestId('generate-documents-button')).toBeEnabled();
+    }
+    const readFullAdvert = card.getByRole('button', { name: 'Read full advert', exact: true });
+    if (e2eConfig.allowRealProviderE2e && await readFullAdvert.isVisible().catch(() => false)) {
+      await this.clickInPlace(readFullAdvert);
+      const showLess = card.getByRole('button', { name: 'Show less', exact: true });
+      await expect(showLess)
+        .toBeVisible({ timeout: 60_000 });
+      await this.pauseAfterFeature();
+      await this.clickFramed(showLess);
+    }
     await this.pauseAfterFeature();
     await this.clearSpotlight();
   }
@@ -95,6 +113,26 @@ export class ProductShowcasePage extends BasePage {
     await this.pauseAfterFeature();
     await demoCursor.park(this.page);
     await this.clearSpotlight();
+  }
+
+  async expectSelectedJobStatus(candidate: ShowcaseCandidate, expected: string): Promise<void> {
+    const card = this.selectedJobCard(candidate);
+    const badge = card.locator('.status-badge').filter({ hasText: expected }).first();
+    await expect(
+      badge,
+      `The selected search result must reconcile to application status ${expected}.`,
+    ).toBeVisible({ timeout: 30_000 });
+    await this.intentionalScrollNearTop(card.locator('.job-card-trigger'), 116);
+    await demoCursor.moveTo(badge);
+    await this.pauseAfterFeature();
+  }
+
+  async verifyLiveShowcaseRuntime(): Promise<void> {
+    if (!e2eConfig.allowRealProviderE2e) return;
+    await this.clickFramed(this.page.getByTestId('workspace-tab-documents'));
+    await expect(this.page.getByText('Real OpenAI generation', { exact: true })).toBeVisible();
+    await this.clickFramed(this.page.getByTestId('workspace-tab-search'));
+    await expect(this.page.getByText('Real providers', { exact: true }).first()).toBeVisible();
   }
 
   async showMeaningfulReporting(): Promise<void> {
@@ -124,7 +162,7 @@ export class ProductShowcasePage extends BasePage {
     const editor = profile.locator('#profile-skills-expertise-editor');
     const input = editor.getByLabel('Skills & expertise', { exact: true });
     for (const skill of skills) {
-      await input.fill(skill);
+      await this.humanFillInPlace(input, skill);
       await input.press('Enter');
     }
     await this.intentionalScrollNearCenter(editor);
@@ -137,7 +175,7 @@ export class ProductShowcasePage extends BasePage {
     const editor = profile.locator('#profile-working-preferences-editor');
     for (const label of ['Permanent', 'Full time', 'Flexible', 'Hybrid', 'Remote']) {
       const option = editor.getByLabel(label, { exact: true });
-      if (!(await option.isChecked())) await option.check();
+      if (!(await option.isChecked())) await this.clickFramed(option);
     }
     await this.intentionalScrollNearCenter(editor);
     await this.pauseAfterFeature();
@@ -150,16 +188,22 @@ export class ProductShowcasePage extends BasePage {
   ): Promise<void> {
     await this.clickFramed(profile.getByRole('button', { name: 'Edit Location and commute', exact: true }));
     const editor = profile.locator('#profile-location-editor');
-    await editor.getByLabel('Commute distance', { exact: true })
-      .selectOption(String(candidate.commuteDistanceMiles));
+    await this.selectFramed(
+      editor.getByLabel('Commute distance', { exact: true }),
+      String(candidate.commuteDistanceMiles)
+    );
     for (const label of ['Driving', 'Public transport']) {
       const option = editor.getByLabel(label, { exact: true });
-      if (!(await option.isChecked())) await option.check();
+      if (!(await option.isChecked())) await this.clickFramed(option);
     }
-    await editor.getByLabel('Maximum driving time', { exact: true })
-      .fill(String(candidate.maximumDrivingMinutes));
-    await editor.getByLabel('Maximum public-transport time', { exact: true })
-      .fill(String(candidate.maximumTransitMinutes));
+    await this.humanFillFramed(
+      editor.getByLabel('Maximum driving time', { exact: true }),
+      String(candidate.maximumDrivingMinutes)
+    );
+    await this.humanFillFramed(
+      editor.getByLabel('Maximum public-transport time', { exact: true }),
+      String(candidate.maximumTransitMinutes)
+    );
     await this.intentionalScrollNearCenter(editor);
     await this.pauseAfterFeature();
     await this.saveProfileSection(profile);
@@ -168,8 +212,10 @@ export class ProductShowcasePage extends BasePage {
   private async editAvailability(profile: Locator, noticePeriodDays: number): Promise<void> {
     await this.clickFramed(profile.getByRole('button', { name: 'Edit Availability', exact: true }));
     const editor = profile.locator('#profile-availability-editor');
-    await editor.getByLabel('Or notice period in days', { exact: true })
-      .fill(String(noticePeriodDays));
+    await this.humanFillFramed(
+      editor.getByLabel('Or notice period in days', { exact: true }),
+      String(noticePeriodDays)
+    );
     await this.intentionalScrollNearCenter(editor);
     await this.pauseAfterFeature();
     await this.saveProfileSection(profile);
@@ -226,34 +272,37 @@ export class ProductShowcasePage extends BasePage {
     );
     const form = dialog.locator('form');
     await expect(form).toBeVisible();
-    await form.locator('select[name="category"]').selectOption(evidence.category);
+    await this.selectDialogTarget(form.locator('select[name="category"]'), evidence.category);
 
-    await this.fillIfPresent(form.locator('input[name="roleTitle"]'), evidence.roleTitle);
-    await this.fillIfPresent(form.locator('input[name="organisation"]'), evidence.organisation);
-    await this.fillIfPresent(form.locator('input[name="programme"]'), evidence.programme);
-    await this.fillIfPresent(form.locator('input[name="institution"]'), evidence.institution);
-    await this.fillIfPresent(form.locator('input[name="qualification"]'), evidence.qualificationTitle);
-    await this.fillIfPresent(form.locator('input[name="issuer"]'), evidence.issuer);
-    await this.fillIfPresent(form.locator('input[name="heading"]'), evidence.heading);
-    await this.fillIfPresent(form.locator('input[name="projectRole"]'), evidence.projectRole);
-    await form.locator('textarea[name="description"]').fill(evidence.description);
+    await this.humanFillIfPresent(form.locator('input[name="roleTitle"]'), evidence.roleTitle);
+    await this.humanFillIfPresent(form.locator('input[name="organisation"]'), evidence.organisation);
+    await this.humanFillIfPresent(form.locator('input[name="programme"]'), evidence.programme);
+    await this.humanFillIfPresent(form.locator('input[name="institution"]'), evidence.institution);
+    await this.humanFillIfPresent(form.locator('input[name="qualification"]'), evidence.qualificationTitle);
+    await this.humanFillIfPresent(form.locator('input[name="issuer"]'), evidence.issuer);
+    await this.humanFillIfPresent(form.locator('input[name="heading"]'), evidence.heading);
+    await this.humanFillIfPresent(form.locator('input[name="projectRole"]'), evidence.projectRole);
+    await this.humanFillDialogTarget(form.locator('textarea[name="description"]'), evidence.description);
 
     if (evidence.category === 'EDUCATION' || evidence.category === 'QUALIFICATION_TRAINING') {
-      await form.locator('select[name="completionStatus"]').selectOption('Completed');
+      await this.selectDialogTarget(form.locator('select[name="completionStatus"]'), 'Completed');
       await this.fillIfPresent(form.locator('input[name="completionDate"]'), evidence.issueDate);
     } else {
       await this.fillIfPresent(form.locator('input[name="startDate"]'), evidence.startDate);
       if (evidence.ongoing) {
-        await form.locator('input[name="ongoing"]').check();
+        await this.clickDialogTarget(form.locator('input[name="ongoing"]'));
       } else {
         await this.fillIfPresent(form.locator('input[name="endDate"]'), evidence.endDate);
       }
     }
 
-    await form.getByRole('button', { name: 'Add more detail', exact: true }).click();
-    await this.fillIfPresent(form.locator('textarea[name="responsibilities"]'), evidence.responsibilities);
-    await this.fillIfPresent(form.locator('textarea[name="achievements"]'), evidence.achievements);
-    await form.locator('input[name="skills"]').fill(evidence.demonstratedSkills.join(', '));
+    await this.clickDialogTarget(form.getByRole('button', { name: 'Add more detail', exact: true }));
+    await this.humanFillIfPresent(form.locator('textarea[name="responsibilities"]'), evidence.responsibilities);
+    await this.humanFillIfPresent(form.locator('textarea[name="achievements"]'), evidence.achievements);
+    await this.humanFillDialogTarget(
+      form.locator('input[name="skills"]'),
+      evidence.demonstratedSkills.join(', ')
+    );
     await this.intentionalScrollNearCenter(form.getByRole('button', { name: 'Save as draft', exact: true }));
     if (showCompletedForm) await this.pauseAfterFeature();
 
@@ -275,20 +324,88 @@ export class ProductShowcasePage extends BasePage {
 
   private async fillIfPresent(locator: Locator, value: string | undefined): Promise<void> {
     if (value !== undefined && await locator.isVisible().catch(() => false)) {
-      await locator.fill(value);
+      await this.fillDialogTarget(locator, value);
+    }
+  }
+
+  private async humanFillIfPresent(locator: Locator, value: string | undefined): Promise<void> {
+    if (value !== undefined && await locator.isVisible().catch(() => false)) {
+      await this.humanFillDialogTarget(locator, value);
     }
   }
 
   private async clickDialogTarget(locator: Locator): Promise<void> {
-    await locator.scrollIntoViewIfNeeded();
-    await this.page.waitForTimeout(420);
+    await this.frameDialogTarget(locator);
     await this.clickInPlace(locator);
   }
 
+  private async humanFillDialogTarget(locator: Locator, value: string): Promise<void> {
+    await this.frameDialogTarget(locator);
+    await this.humanFillInPlace(locator, value);
+  }
+
+  private async fillDialogTarget(locator: Locator, value: string): Promise<void> {
+    await this.frameDialogTarget(locator);
+    await this.clickInPlace(locator);
+    await this.fillInPlace(locator, value);
+  }
+
+  private async selectDialogTarget(locator: Locator, value: string): Promise<void> {
+    await this.frameDialogTarget(locator);
+    await this.selectInPlace(locator, value);
+  }
+
+  private async frameDialogTarget(locator: Locator): Promise<void> {
+    await locator.scrollIntoViewIfNeeded();
+    await this.page.waitForTimeout(320);
+    if (!e2eConfig.demoRecording) return;
+    const box = await locator.boundingBox();
+    if (!box) return;
+    await demoCursor.moveToPoint(this.page, {
+      x: Math.max(20, box.x + Math.min(24, Math.max(box.width * 0.12, 12))),
+      y: Math.max(20, box.y + Math.min(12, Math.max(box.height * 0.2, 8))),
+    }, 320);
+  }
+
   private selectedJobCard(candidate: ShowcaseCandidate): Locator {
+    if (candidate.selectedJob.canonicalJobId) {
+      const canonicalJobId = this.safeCanonicalJobId(candidate.selectedJob.canonicalJobId);
+      return this.page
+        .locator(`app-job-card[data-job-reference="${canonicalJobId}"]`)
+        .getByTestId('job-result-card')
+        .first();
+    }
     return this.page.getByTestId('job-result-card')
       .filter({ hasText: candidate.selectedJob.title })
       .filter({ hasText: candidate.selectedJob.company })
       .first();
+  }
+
+  private configuredShowcaseJobCard(candidate: ShowcaseCandidate, results: Locator): Locator {
+    if (!e2eConfig.allowRealProviderE2e) return this.selectedJobCard(candidate);
+    return results.first();
+  }
+
+  private async captureLiveJobIdentity(card: Locator, candidate: ShowcaseCandidate): Promise<void> {
+    const host = card.locator('xpath=ancestor::app-job-card');
+    const canonicalJobId = (await host.getAttribute('data-job-reference'))?.trim();
+    const provider = (await host.getAttribute('data-job-provider'))?.trim();
+    if (!canonicalJobId || !provider) {
+      throw new Error('The live showcase result did not expose canonical job and provider identity.');
+    }
+    this.safeCanonicalJobId(canonicalJobId);
+    candidate.selectedJob = {
+      title: (await card.locator('.job-title').innerText()).trim(),
+      company: (await card.locator('.job-company').innerText()).trim(),
+      canonicalJobId,
+      provider
+    };
+  }
+
+  private safeCanonicalJobId(value: string): string {
+    if (!/^[A-Za-z0-9._:-]{1,128}$/.test(value)) {
+      throw new Error('The showcase job exposed an unsafe canonical identity.');
+    }
+    return value;
   }
 }

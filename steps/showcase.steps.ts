@@ -14,10 +14,14 @@ When('the showcase chapter {string} begins', function (this: JobSeekerWorld, cha
   this.markShowcaseSection(chapter);
 });
 
-When('Alex builds a rich professional profile and evidence library', async function (this: JobSeekerWorld) {
-  if (!this.showcaseCandidate || !this.productShowcasePage) throw new Error('Showcase candidate was not initialised.');
-  await this.productShowcasePage.completeProfessionalProfile(this.showcaseCandidate);
-});
+When(
+  'Alex builds a rich professional profile and evidence library',
+  { timeout: 8 * 60_000 },
+  async function (this: JobSeekerWorld) {
+    if (!this.showcaseCandidate || !this.productShowcasePage) throw new Error('Showcase candidate was not initialised.');
+    await this.productShowcasePage.completeProfessionalProfile(this.showcaseCandidate);
+  },
+);
 
 When('Alex discovers the selected showcase job', async function (this: JobSeekerWorld) {
   if (!this.showcaseCandidate || !this.productShowcasePage) throw new Error('Showcase candidate was not initialised.');
@@ -29,12 +33,26 @@ When(
   {timeout: 12 * 60_000},
   async function (this: JobSeekerWorld) {
     if (!this.showcaseCandidate || !this.applicationDocumentJourneyPage) throw new Error('Showcase journey was not initialised.');
+    await this.productShowcasePage?.verifyLiveShowcaseRuntime();
     this.applicationDocumentChoices = { CV: 'GENERATE', COVER_LETTER: 'GENERATE' };
     await this.applicationDocumentJourneyPage.startJourney('GENERATE', this.showcaseCandidate.selectedJob);
     await this.applicationDocumentJourneyPage.chooseDocuments(this.applicationDocumentChoices);
     await this.applicationDocumentJourneyPage.completeGeneration(
       ['CV', 'COVER_LETTER'],
-      'Application Delivery Platform',
+      {
+        CV: [
+          'Software Developer',
+          'Software Engineering Intern',
+          'BSc Computer Science',
+          'AWS Certified Developer',
+          'Application Delivery Platform',
+        ],
+        COVER_LETTER: [
+          'Software Developer',
+          'AWS Certified Developer',
+          'Application Delivery Platform',
+        ],
+      },
     );
     await this.applicationDocumentJourneyPage.assertApplication(this.applicationDocumentChoices);
   },
@@ -71,6 +89,7 @@ Then('Alex sees meaningful job-search reporting', async function (this: JobSeeke
 Then('Alex returns to the same selected job', async function (this: JobSeekerWorld) {
   if (!this.showcaseCandidate || !this.productShowcasePage) throw new Error('Showcase candidate was not initialised.');
   await this.productShowcasePage.openSelectedJob(this.showcaseCandidate);
+  await this.productShowcasePage.expectSelectedJobStatus(this.showcaseCandidate, 'Interview');
   await this.page?.waitForTimeout(this.config.demoBufferMs);
 });
 

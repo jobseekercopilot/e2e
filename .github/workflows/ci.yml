@@ -21,6 +21,10 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+      - name: Install PDF preview renderer
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends poppler-utils
       - run: npm ci
       - run: npm run playwright:install:ci
       - run: npm run verify

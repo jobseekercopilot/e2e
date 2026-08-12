@@ -2,6 +2,8 @@ import { expect, type Browser, type BrowserContext, type Locator, type Page, typ
 import type { NamedStateIdentity } from './StabilisationPage';
 import { PUBLIC_NAMED_STATE_PASSWORD } from '../support/demo-data';
 import { applicationDocumentFixtures, type ApplicationDocumentFixture } from '../support/application-document-fixtures';
+import { e2eConfig } from '../support/config';
+import { demoCursor } from '../support/demo-cursor';
 
 export type DocumentChoice = 'GENERATE' | 'UPLOAD' | 'OMIT';
 export type DocumentPurpose = 'CV' | 'COVER_LETTER';
@@ -29,6 +31,7 @@ interface DocumentReference {
 export interface PreferredJob {
   title: string;
   company: string;
+  canonicalJobId?: string;
 }
 
 interface UploadOperation {
@@ -84,7 +87,7 @@ export class ApplicationDocumentJourneyPage {
   async startJourney(entryPoint: 'ADD' | 'GENERATE', preferredJob?: PreferredJob): Promise<void> {
     this.walletBefore = await this.walletBalance();
     await this.page.goto('/dashboard');
-    await this.page.getByTestId('workspace-tab-search').click();
+    await this.demoClick(this.page.getByTestId('workspace-tab-search'));
     await this.ensureSearchResults(entryPoint, preferredJob);
     await expect(this.page.getByTestId('job-result-card').first()).toBeVisible({ timeout: 30_000 });
     this.selectedCard = await this.openJobCard(entryPoint, preferredJob);
@@ -101,7 +104,7 @@ export class ApplicationDocumentJourneyPage {
       : undefined;
     if (!createsApplication) this.applicationId = await this.applicationIdForCard(this.selectedCard);
     await expect(action).toBeEnabled();
-    await action.click();
+    await this.demoClick(action);
     if (createResponse) {
       const response = await createResponse;
       expect(response.ok(), 'The tracked application must be created before document selection.').toBe(true);
@@ -117,6 +120,10 @@ export class ApplicationDocumentJourneyPage {
   private async ensureSearchResults(entryPoint: 'ADD' | 'GENERATE', preferredJob?: PreferredJob): Promise<void> {
     const cards = this.page.getByTestId('job-result-card');
     if (entryPoint === 'ADD' && await cards.first().isVisible().catch(() => false)) return;
+    if (preferredJob) {
+      const preferred = this.preferredJobCard(cards, preferredJob);
+      if (await preferred.isVisible().catch(() => false)) return;
+    }
 
     const findJobs = this.page.getByRole('button', { name: 'Find jobs', exact: true });
     if (await this.page.getByTestId('search-setup-prompt').isVisible().catch(() => false)) {
@@ -156,7 +163,7 @@ export class ApplicationDocumentJourneyPage {
       && new URL(response.url()).pathname === '/api/jobs/search');
     await findJobs.click();
     const completedSearch = await searchResponse;
-    expect(completedSearch.ok(), 'The fixture job search must complete successfully.').toBe(true);
+    expect(completedSearch.ok(), 'The job search must complete successfully.').toBe(true);
     await expect(this.page.getByTestId('job-results-workspace')
       .getByRole('button', { name: 'Refresh', exact: true }))
       .toBeEnabled({ timeout: 30_000 });
@@ -335,7 +342,7 @@ export class ApplicationDocumentJourneyPage {
 
   async completeGeneration(
     expectedPurposes: DocumentPurpose[],
-    preferredEvidenceTitle = GENERATION_EVIDENCE_TITLE
+    preferredEvidence: string | Partial<Record<DocumentPurpose, string[]>> = GENERATION_EVIDENCE_TITLE
   ): Promise<void> {
     const selector = this.page.getByTestId('generation-evidence-selector');
     await expect(selector).toBeVisible({ timeout: 30_000 });
@@ -347,23 +354,39 @@ export class ApplicationDocumentJourneyPage {
       }
     }
     const confirmation = selector.getByLabel(/I have reviewed this and confirm/i);
-    if (await confirmation.isVisible().catch(() => false)) await confirmation.check();
+    if (await confirmation.isVisible().catch(() => false)) await this.demoCheck(confirmation);
     const purposePanels = selector.locator('.purpose-panel');
     await expect(purposePanels).toHaveCount(expectedPurposes.length);
     for (let index = 0; index < expectedPurposes.length; index += 1) {
       const evidenceChoices = purposePanels.nth(index).locator('label.evidence-choice');
       await expect(evidenceChoices.first()).toBeVisible();
-      const preferredEvidence = evidenceChoices.filter({hasText: preferredEvidenceTitle});
-      const selectedEvidence = await preferredEvidence.count() > 0
-        ? preferredEvidence.first()
-        : evidenceChoices.first();
-      await selectedEvidence.locator('input[type="checkbox"]').check();
+      const purpose = expectedPurposes[index];
+      const preferredTitles = typeof preferredEvidence === 'string'
+        ? [preferredEvidence]
+        : (preferredEvidence[purpose] ?? []);
+      let selectedCount = 0;
+      for (const title of preferredTitles) {
+        const preferredChoice = evidenceChoices.filter({hasText: title}).first();
+        if (await preferredChoice.count() === 0) continue;
+        await this.demoCheck(preferredChoice.locator('input[type="checkbox"]'));
+        selectedCount += 1;
+      }
+      if (selectedCount === 0) {
+        await this.demoCheck(evidenceChoices.first().locator('input[type="checkbox"]'));
+      }
     }
 
     const startsBefore = this.generationStarts;
     const action = selector.getByRole('button', { name: /^Generate .*AI Credit/ });
     await expect(action).toBeEnabled();
-    await action.click();
+    await this.demoClick(action);
+    const selectedCard = this.selectedJobCard();
+    const generationProgress = selectedCard.getByTestId('generation-progress');
+    if (e2eConfig.demoRecording) {
+      await expect(generationProgress).toBeVisible({ timeout: 10_000 });
+      await this.frameSelectedJobHeader(generationProgress);
+      await this.page.waitForTimeout(1_200);
+    }
     const expectedLabel = expectedPurposes.length === 2
       ? /CV and cover letter generated successfully/i
       : new RegExp(`${expectedPurposes[0] === 'CV' ? 'CV' : 'Cover letter'} generated successfully`, 'i');
@@ -371,7 +394,46 @@ export class ApplicationDocumentJourneyPage {
       .or(this.page.locator('#toast-notification').getByText(expectedLabel).first())
       .or(this.selectedJobCard().getByText('Documents prepared', { exact: true }));
     await expect(completionState.first()).toBeVisible({ timeout: 12 * 60_000 });
+    if (e2eConfig.demoRecording) {
+      const prepared = selectedCard.locator('.status-badge')
+        .filter({ hasText: 'Documents prepared' })
+        .first();
+      await expect(prepared).toBeVisible({ timeout: 30_000 });
+      await this.frameSelectedJobHeader(prepared);
+      await this.page.waitForTimeout(900);
+    }
     expect(this.generationStarts).toBe(startsBefore + 1);
+  }
+
+  private async demoClick(locator: Locator): Promise<void> {
+    if (!e2eConfig.demoRecording) {
+      await locator.click();
+      return;
+    }
+    await locator.scrollIntoViewIfNeeded();
+    await this.page.waitForTimeout(220);
+    await demoCursor.click(locator);
+  }
+
+  private async demoCheck(locator: Locator): Promise<void> {
+    if (!e2eConfig.demoRecording) {
+      await locator.check();
+      return;
+    }
+    if (await locator.isChecked()) return;
+    await this.demoClick(locator);
+    await expect(locator).toBeChecked();
+  }
+
+  private async frameSelectedJobHeader(focus: Locator): Promise<void> {
+    const header = this.selectedJobCard().locator('.job-card-trigger');
+    await header.evaluate(element => element.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+      inline: 'nearest',
+    }));
+    await this.page.waitForTimeout(e2eConfig.demoScrollMs + 120);
+    await demoCursor.moveTo(focus, { durationMs: 520 });
   }
 
   async assertApplication(choices: Record<DocumentPurpose, DocumentChoice>): Promise<void> {
@@ -511,13 +573,10 @@ export class ApplicationDocumentJourneyPage {
   ): Promise<Locator> {
     const cards = this.page.getByTestId('job-result-card');
     if (preferredJob) {
-      const preferred = cards
-        .filter({ hasText: preferredJob.title })
-        .filter({ hasText: preferredJob.company })
-        .first();
+      const preferred = this.preferredJobCard(cards, preferredJob);
       await expect(
         preferred,
-        `The fixture search did not return ${preferredJob.title} at ${preferredJob.company}.`
+        `The search did not return ${preferredJob.title} at ${preferredJob.company}.`
       ).toBeVisible({ timeout: 30_000 });
       const toggle = preferred.getByRole('button', { name: 'Toggle job details', exact: true });
       if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
@@ -543,7 +602,23 @@ export class ApplicationDocumentJourneyPage {
       if (actionBecameVisible) return card;
       if ((await toggle.getAttribute('aria-expanded')) === 'true') await toggle.click();
     }
-    throw new Error(`The fixture job search returned no ${entryPoint.toLowerCase()} application candidate.`);
+    throw new Error(`The job search returned no ${entryPoint.toLowerCase()} application candidate.`);
+  }
+
+  private preferredJobCard(cards: Locator, preferredJob: PreferredJob): Locator {
+    if (preferredJob.canonicalJobId) {
+      if (!/^[A-Za-z0-9._:-]{1,128}$/.test(preferredJob.canonicalJobId)) {
+        throw new Error('The preferred job exposed an unsafe canonical identity.');
+      }
+      return this.page
+        .locator(`app-job-card[data-job-reference="${preferredJob.canonicalJobId}"]`)
+        .getByTestId('job-result-card')
+        .first();
+    }
+    return cards
+      .filter({ hasText: preferredJob.title })
+      .filter({ hasText: preferredJob.company })
+      .first();
   }
 
   private async applicationIdForCard(card: Locator): Promise<string> {
