@@ -147,10 +147,56 @@ export class ApplicationTrackerPage extends BasePage {
     await this.clearSpotlight();
   }
 
+  async showPreparedShowcaseApplication(title: string, company: string): Promise<void> {
+    await this.open();
+    const card = this.applicationCardFor(title, company);
+    await expect(card).toBeVisible({timeout: 30_000});
+    await expect(card.locator('.status-documents-generated')).toBeVisible();
+    await this.intentionalScrollNearCenter(card);
+    await this.spotlight(card);
+    await this.pauseAfterFeature();
+
+    const documents = card.getByTestId('application-documents');
+    await this.clickFramed(documents.locator('summary'));
+    const selections = documents.locator('select');
+    await expect(selections).toHaveCount(2, {timeout: 30_000});
+    for (let index = 0; index < 2; index += 1) {
+      const selection = selections.nth(index);
+      const approvedVersion = selection.locator('option:not([value=""])').first();
+      await expect(approvedVersion).toBeAttached({timeout: 30_000});
+      const documentId = await approvedVersion.getAttribute('value');
+      expect(documentId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      );
+      await selection.selectOption(documentId!);
+      await expect(selection).toHaveValue(documentId!);
+      await expect(selection.locator('option:checked')).toContainText(/Version 1/);
+    }
+
+    const saveSelections = documents.getByRole('button', {
+      name: 'Save document selections',
+      exact: true,
+    });
+    await expect(saveSelections).toBeEnabled();
+    const saveCompleted = this.page.waitForResponse(response =>
+      response.request().method() === 'PUT'
+      && response.url().includes('/document-selections')
+      && response.ok(),
+      {timeout: 30_000}
+    );
+    await this.clickFramed(saveSelections);
+    await saveCompleted;
+
+    await expect(card.locator('.status-documents-generated')).toBeVisible();
+    await expect(card.getByText('Documents prepared', {exact: true})).toBeVisible();
+    await this.pauseAfterFeature();
+    await this.clearSpotlight();
+  }
+
   async expectShowcaseApplicationPersisted(
     title: string,
     company: string,
-    status: 'interview' | 'offer'
+    status: 'documents-generated' | 'interview' | 'offer'
   ): Promise<void> {
     await this.open();
     const card = this.applicationCardFor(title, company);
@@ -160,10 +206,17 @@ export class ApplicationTrackerPage extends BasePage {
     if (!(await documents.getAttribute('open'))) {
       await this.clickFramed(documents.locator('summary'));
     }
-    await expect(documents.getByText('CV used · Version 1', {exact: true}))
-      .toBeVisible({timeout: 30_000});
-    await expect(documents.getByText('Cover letter used · Version 1', {exact: true}))
-      .toBeVisible({timeout: 30_000});
+    if (status === 'documents-generated') {
+      const selections = documents.locator('select');
+      await expect(selections).toHaveCount(2, {timeout: 30_000});
+      await expect(selections.nth(0)).not.toHaveValue('');
+      await expect(selections.nth(1)).not.toHaveValue('');
+    } else {
+      await expect(documents.getByText('CV used · Version 1', {exact: true}))
+        .toBeVisible({timeout: 30_000});
+      await expect(documents.getByText('Cover letter used · Version 1', {exact: true}))
+        .toBeVisible({timeout: 30_000});
+    }
   }
 
   async changeFirstApplicationStatus(status: 'Applied' | 'Interview' | 'Offer'): Promise<void> {
