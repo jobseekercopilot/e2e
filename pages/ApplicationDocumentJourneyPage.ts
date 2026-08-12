@@ -39,6 +39,14 @@ export interface JourneyStartOptions {
   reuseCurrentSearchView?: boolean;
 }
 
+export interface PreparedApplicationExpectation {
+  id: string;
+  title: string;
+  company: string;
+  cvDocumentId: string;
+  coverLetterDocumentId: string;
+}
+
 interface UploadOperation {
   operationId?: string;
   applicationId?: string;
@@ -531,6 +539,26 @@ export class ApplicationDocumentJourneyPage {
         expect(reference?.originalContentSha256).toBe(expectedFixture.sha256);
       }
     }
+  }
+
+  async preparedApplicationExpectation(): Promise<PreparedApplicationExpectation> {
+    const record = await this.currentApplication();
+    const cvDocumentId = record.cvDocumentReference?.documentId;
+    const coverLetterDocumentId = record.coverLetterDocumentReference?.documentId;
+    if (!record.jobTitle?.trim() || !record.companyName?.trim()) {
+      throw new Error('The generated application did not retain its job identity.');
+    }
+    if (!cvDocumentId || !UUID.test(cvDocumentId)
+      || !coverLetterDocumentId || !UUID.test(coverLetterDocumentId)) {
+      throw new Error('The generated application did not retain both exact document references.');
+    }
+    return {
+      id: record.id,
+      title: record.jobTitle.trim(),
+      company: record.companyName.trim(),
+      cvDocumentId,
+      coverLetterDocumentId
+    };
   }
 
   async assertUploadCreditAndBoundary(expectedUploads: number): Promise<void> {

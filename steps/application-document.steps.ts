@@ -114,6 +114,16 @@ Then('application document reporting remains content-free', async function (this
   await journey(this).assertReportingContentFree();
 });
 
+Then('the generated application survives refresh and explicit lifecycle progression', async function (
+  this: JobSeekerWorld
+) {
+  if (!this.applicationTrackerPage) {
+    throw new Error('Application Tracker page was not initialised.');
+  }
+  const expected = await journey(this).preparedApplicationExpectation();
+  await this.applicationTrackerPage.provePreparedApplicationLifecycle(expected);
+});
+
 Then("the second cross-user identity is denied the first owner's upload and application",
   async function (this: JobSeekerWorld) {
     const identity = this.namedStateDefinition?.identities[1];
