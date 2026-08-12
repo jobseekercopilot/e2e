@@ -356,8 +356,10 @@ export class ApplicationDocumentJourneyPage {
     const purposePanels = selector.locator('.purpose-panel');
     await expect(purposePanels).toHaveCount(expectedPurposes.length);
     await expect(purposePanels.first().locator('label.evidence-choice').first()).toBeVisible();
+    await expect(selector.getByText('Loading the complete advert from the provider…', { exact: true }))
+      .toHaveCount(0, { timeout: 60_000 });
     const confirmation = selector.getByLabel(/I have reviewed this and confirm/i);
-    if (await confirmation.count() > 0 && !await confirmation.isChecked()) {
+    if (await confirmation.isVisible().catch(() => false) && !await confirmation.isChecked()) {
       await this.demoCheck(
         confirmation,
         selector.locator('label.job-advert-confirmation'),
