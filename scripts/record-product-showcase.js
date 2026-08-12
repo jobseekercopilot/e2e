@@ -36,7 +36,7 @@ const downloadDir = path.join(outputDir, 'downloads');
 const timelinePath = path.join(outputDir, 'showcase-timeline.json');
 const reportPath = path.join(outputDir, 'recording-report.json');
 const requestedClip = (process.argv[2] || process.env.PROMO_CLIP || '').toUpperCase();
-const chapters = ['ONBOARDING', 'PROFILE', 'DISCOVER', 'GENERATE', 'DOCUMENTS', 'TRACKING', 'REPORTING'];
+const chapters = ['ONBOARDING', 'PROFILE', 'DISCOVER', 'GENERATE', 'DOCUMENTS', 'REPORTING', 'TRACKING'];
 
 const envFile = path.join(
   infrastructure,

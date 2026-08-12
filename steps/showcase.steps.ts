@@ -73,9 +73,9 @@ When('Alex reviews and previews both generated documents', async function (this:
   this.demoDownloads.push(...saved.map(download => download.path));
 });
 
-When('Alex reviews the prepared application without marking it as applied', async function (this: JobSeekerWorld) {
+When('Alex progresses the prepared application through acceptance', async function (this: JobSeekerWorld) {
   if (!this.showcaseCandidate || !this.applicationTrackerPage) throw new Error('Showcase candidate was not initialised.');
-  await this.applicationTrackerPage.showPreparedShowcaseApplication(
+  await this.applicationTrackerPage.progressShowcaseApplicationToAccepted(
     this.showcaseCandidate.selectedJob.title,
     this.showcaseCandidate.selectedJob.company
   );
@@ -86,32 +86,10 @@ Then('Alex sees meaningful job-search reporting', async function (this: JobSeeke
   await this.productShowcasePage.showMeaningfulReporting();
 });
 
-Then('Alex returns to the same selected job', async function (this: JobSeekerWorld) {
-  if (!this.showcaseCandidate || !this.productShowcasePage) throw new Error('Showcase candidate was not initialised.');
-  await this.productShowcasePage.openSelectedJob(this.showcaseCandidate, true);
-  await this.productShowcasePage.expectSelectedJobStatus(this.showcaseCandidate, 'Documents prepared');
+When('Alex signs out', async function (this: JobSeekerWorld) {
+  if (!this.navigationPage) {
+    throw new Error('Showcase navigation was not initialised.');
+  }
+  await this.navigationPage.signOut();
   await this.page?.waitForTimeout(this.config.demoBufferMs);
 });
-
-When('Alex signs out and signs back in', async function (this: JobSeekerWorld) {
-  if (!this.showcaseCandidate || !this.navigationPage || !this.registerPage) {
-    throw new Error('Showcase returning-user journey was not initialised.');
-  }
-  await this.navigationPage.signOutAndRejectProtectedReuse();
-  await this.registerPage.loginUser(this.showcaseCandidate);
-});
-
-Then(
-  "Alex's profile, documents, application and reporting state persist",
-  async function (this: JobSeekerWorld) {
-    if (!this.showcaseCandidate || !this.productShowcasePage || !this.documentsPage
-      || !this.applicationTrackerPage || !this.reportingReconciliationPage) {
-      throw new Error('Showcase returning-user assertions were not initialised.');
-    }
-    const {title, company} = this.showcaseCandidate.selectedJob;
-    await this.productShowcasePage.expectProfessionalProfilePersisted(this.showcaseCandidate);
-    await this.documentsPage.expectShowcaseDocumentsPersisted(title, company);
-    await this.applicationTrackerPage.expectShowcaseApplicationPersisted(title, company, 'documents-generated');
-    await this.reportingReconciliationPage.reconcile(1);
-  },
-);
