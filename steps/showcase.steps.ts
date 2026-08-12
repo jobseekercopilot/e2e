@@ -39,7 +39,20 @@ When(
     await this.applicationDocumentJourneyPage.chooseDocuments(this.applicationDocumentChoices);
     await this.applicationDocumentJourneyPage.completeGeneration(
       ['CV', 'COVER_LETTER'],
-      'Application Delivery Platform',
+      {
+        CV: [
+          'Software Developer',
+          'Software Engineering Intern',
+          'BSc Computer Science',
+          'AWS Certified Developer',
+          'Application Delivery Platform',
+        ],
+        COVER_LETTER: [
+          'Software Developer',
+          'AWS Certified Developer',
+          'Application Delivery Platform',
+        ],
+      },
     );
     await this.applicationDocumentJourneyPage.assertApplication(this.applicationDocumentChoices);
   },
@@ -76,6 +89,7 @@ Then('Alex sees meaningful job-search reporting', async function (this: JobSeeke
 Then('Alex returns to the same selected job', async function (this: JobSeekerWorld) {
   if (!this.showcaseCandidate || !this.productShowcasePage) throw new Error('Showcase candidate was not initialised.');
   await this.productShowcasePage.openSelectedJob(this.showcaseCandidate);
+  await this.productShowcasePage.expectSelectedJobStatus(this.showcaseCandidate, 'Interview');
   await this.page?.waitForTimeout(this.config.demoBufferMs);
 });
 

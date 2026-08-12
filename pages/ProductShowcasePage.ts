@@ -93,8 +93,11 @@ export class ProductShowcasePage extends BasePage {
     const readFullAdvert = card.getByRole('button', { name: 'Read full advert', exact: true });
     if (e2eConfig.allowRealProviderE2e && await readFullAdvert.isVisible().catch(() => false)) {
       await this.clickInPlace(readFullAdvert);
-      await expect(card.getByRole('button', { name: 'Show less', exact: true }))
+      const showLess = card.getByRole('button', { name: 'Show less', exact: true });
+      await expect(showLess)
         .toBeVisible({ timeout: 60_000 });
+      await this.pauseAfterFeature();
+      await this.clickFramed(showLess);
     }
     await this.pauseAfterFeature();
     await this.clearSpotlight();
@@ -110,6 +113,18 @@ export class ProductShowcasePage extends BasePage {
     await this.pauseAfterFeature();
     await demoCursor.park(this.page);
     await this.clearSpotlight();
+  }
+
+  async expectSelectedJobStatus(candidate: ShowcaseCandidate, expected: string): Promise<void> {
+    const card = this.selectedJobCard(candidate);
+    const badge = card.locator('.status-badge').filter({ hasText: expected }).first();
+    await expect(
+      badge,
+      `The selected search result must reconcile to application status ${expected}.`,
+    ).toBeVisible({ timeout: 30_000 });
+    await this.intentionalScrollNearTop(card.locator('.job-card-trigger'), 116);
+    await demoCursor.moveTo(badge);
+    await this.pauseAfterFeature();
   }
 
   async verifyLiveShowcaseRuntime(): Promise<void> {
@@ -320,27 +335,36 @@ export class ProductShowcasePage extends BasePage {
   }
 
   private async clickDialogTarget(locator: Locator): Promise<void> {
-    await locator.scrollIntoViewIfNeeded();
-    await this.page.waitForTimeout(420);
+    await this.frameDialogTarget(locator);
     await this.clickInPlace(locator);
   }
 
   private async humanFillDialogTarget(locator: Locator, value: string): Promise<void> {
-    await locator.scrollIntoViewIfNeeded();
-    await this.page.waitForTimeout(420);
+    await this.frameDialogTarget(locator);
     await this.humanFillInPlace(locator, value);
   }
 
   private async fillDialogTarget(locator: Locator, value: string): Promise<void> {
-    await locator.scrollIntoViewIfNeeded();
-    await this.page.waitForTimeout(420);
+    await this.frameDialogTarget(locator);
+    await this.clickInPlace(locator);
     await this.fillInPlace(locator, value);
   }
 
   private async selectDialogTarget(locator: Locator, value: string): Promise<void> {
-    await locator.scrollIntoViewIfNeeded();
-    await this.page.waitForTimeout(420);
+    await this.frameDialogTarget(locator);
     await this.selectInPlace(locator, value);
+  }
+
+  private async frameDialogTarget(locator: Locator): Promise<void> {
+    await locator.scrollIntoViewIfNeeded();
+    await this.page.waitForTimeout(320);
+    if (!e2eConfig.demoRecording) return;
+    const box = await locator.boundingBox();
+    if (!box) return;
+    await demoCursor.moveToPoint(this.page, {
+      x: Math.max(20, box.x + Math.min(24, Math.max(box.width * 0.12, 12))),
+      y: Math.max(20, box.y + Math.min(12, Math.max(box.height * 0.2, 8))),
+    }, 320);
   }
 
   private selectedJobCard(candidate: ShowcaseCandidate): Locator {
