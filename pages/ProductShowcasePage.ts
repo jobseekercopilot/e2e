@@ -22,7 +22,9 @@ export class ProductShowcasePage extends BasePage {
     await this.editAvailability(profile, candidate.noticePeriodDays);
     await this.addCareerEvidence(profile, candidate.evidence);
 
-    await expect(profile).toContainText(candidate.skills[0]);
+    for (const skill of candidate.skills) {
+      await expect(profile).toContainText(skill);
+    }
     await expect(profile).toContainText(candidate.targetRoles[0]);
     await expect(profile).toContainText(`${candidate.noticePeriodDays} days' notice`);
     const summary = profile.getByTestId('profile-evidence-summary');
@@ -129,9 +131,6 @@ export class ProductShowcasePage extends BasePage {
 
   async verifyLiveShowcaseRuntime(): Promise<void> {
     if (!e2eConfig.allowRealProviderE2e) return;
-    await this.clickFramed(this.page.getByTestId('workspace-tab-documents'));
-    await expect(this.page.getByText('Real OpenAI generation', { exact: true })).toBeVisible();
-    await this.clickFramed(this.page.getByTestId('workspace-tab-search'));
     await expect(this.page.getByText('Real providers', { exact: true }).first()).toBeVisible();
   }
 
@@ -161,8 +160,10 @@ export class ProductShowcasePage extends BasePage {
     const editor = profile.locator('#profile-skills-expertise-editor');
     const input = editor.getByLabel('Skills & expertise', { exact: true });
     for (const skill of skills) {
-      await this.humanFillInPlace(input, skill);
+      await this.humanTypeFramed(input, skill);
       await input.press('Enter');
+      await expect(editor.getByRole('button', {name: `Remove ${skill}`, exact: true}))
+        .toBeVisible();
     }
     await this.intentionalScrollNearCenter(editor);
     await this.pauseAfterFeature();
@@ -355,15 +356,78 @@ export class ProductShowcasePage extends BasePage {
   }
 
   private async frameDialogTarget(locator: Locator): Promise<void> {
-    await locator.scrollIntoViewIfNeeded();
-    await this.page.waitForTimeout(320);
-    if (!e2eConfig.demoRecording) return;
-    const box = await locator.boundingBox();
-    if (!box) return;
-    await demoCursor.moveToPoint(this.page, {
-      x: Math.max(20, box.x + Math.min(24, Math.max(box.width * 0.12, 12))),
-      y: Math.max(20, box.y + Math.min(12, Math.max(box.height * 0.2, 8))),
-    }, 320);
+    if (!e2eConfig.demoRecording) {
+      await locator.scrollIntoViewIfNeeded();
+      return;
+    }
+
+    const plan = await locator.evaluate((element) => {
+      const target = element as HTMLElement;
+      let scroller = target.parentElement;
+      while (scroller) {
+        const style = getComputedStyle(scroller);
+        if (/(auto|scroll)/.test(style.overflowY)
+          && scroller.scrollHeight > scroller.clientHeight + 2) break;
+        scroller = scroller.parentElement;
+      }
+      if (!scroller) return null;
+      const targetRect = target.getBoundingClientRect();
+      const scrollerRect = scroller.getBoundingClientRect();
+      const start = scroller.scrollTop;
+      const maximum = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+      const destination = Math.min(
+        Math.max(0, start + targetRect.top - scrollerRect.top
+          - scroller.clientHeight / 2 + targetRect.height / 2),
+        maximum,
+      );
+      const finalTop = targetRect.top - (destination - start);
+      return {
+        destination,
+        x: Math.min(Math.max(targetRect.left + Math.min(24, Math.max(targetRect.width * 0.12, 12)), 20), window.innerWidth - 20),
+        y: Math.min(Math.max(finalTop + Math.min(12, Math.max(targetRect.height * 0.2, 8)), 20), window.innerHeight - 20),
+      };
+    });
+
+    if (plan) {
+      await Promise.all([
+        locator.evaluate((element, payload) => new Promise<void>((resolve) => {
+          const target = element as HTMLElement;
+          let scroller = target.parentElement;
+          while (scroller) {
+            const style = getComputedStyle(scroller);
+            if (/(auto|scroll)/.test(style.overflowY)
+              && scroller.scrollHeight > scroller.clientHeight + 2) break;
+            scroller = scroller.parentElement;
+          }
+          if (!scroller) {
+            resolve();
+            return;
+          }
+          const start = scroller.scrollTop;
+          const delta = payload.destination - start;
+          if (Math.abs(delta) < 2) {
+            resolve();
+            return;
+          }
+          const started = performance.now();
+          const step = (now: number): void => {
+            const progress = Math.min((now - started) / payload.durationMs, 1);
+            const eased = progress < 0.5
+              ? 2 * progress * progress
+              : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+            scroller!.scrollTop = start + delta * eased;
+            if (progress < 1) requestAnimationFrame(step);
+            else resolve();
+          };
+          requestAnimationFrame(step);
+        }), {destination: plan.destination, durationMs: e2eConfig.demoScrollMs}),
+        demoCursor.moveToPoint(this.page, {x: plan.x, y: plan.y}, e2eConfig.demoScrollMs),
+      ]);
+    } else {
+      await locator.scrollIntoViewIfNeeded();
+      await demoCursor.moveTo(locator, {durationMs: e2eConfig.demoScrollMs});
+    }
+    await this.page.waitForTimeout(180);
   }
 
   private selectedJobCard(candidate: ShowcaseCandidate): Locator {

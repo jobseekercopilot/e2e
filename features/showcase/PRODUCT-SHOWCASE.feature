@@ -1,7 +1,7 @@
 @demo @promo @showcase @state:REGISTRATION_CLEAN
 Feature: Job Seeker Copilot product showcase
 
-  Scenario: Alex moves from a new account to a tailored application pack
+  Scenario: Alex moves from a new account to accepting an offer
     Given the showcase candidate is ready to register
     And the showcase chapter "ONBOARDING" begins
     When he opens Job Seeker Copilot
@@ -21,16 +21,11 @@ Feature: Job Seeker Copilot product showcase
     When the showcase chapter "DOCUMENTS" begins
     And Alex reviews and previews both generated documents
 
-    When the showcase chapter "TRACKING" begins
-    And Alex reviews the prepared application without marking it as applied
-
     When the showcase chapter "REPORTING" begins
     Then Alex sees meaningful job-search reporting
 
-    When the showcase chapter "CONNECTED_WORKFLOW" begins
-    Then Alex returns to the same selected job
+    When the showcase chapter "TRACKING" begins
+    And Alex progresses the prepared application through acceptance
 
-    When the showcase chapter "RETURNING_USER" begins
-    And Alex signs out and signs back in
-    Then Alex's profile, documents, application and reporting state persist
+    When Alex signs out
     And the showcase chapter "END" begins

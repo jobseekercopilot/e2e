@@ -147,7 +147,7 @@ export class ApplicationTrackerPage extends BasePage {
     await this.clearSpotlight();
   }
 
-  async showPreparedShowcaseApplication(title: string, company: string): Promise<void> {
+  async progressShowcaseApplicationToAccepted(title: string, company: string): Promise<void> {
     await this.open();
     const card = this.applicationCardFor(title, company);
     await expect(card).toBeVisible({timeout: 30_000});
@@ -168,7 +168,7 @@ export class ApplicationTrackerPage extends BasePage {
       expect(documentId).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
       );
-      await selection.selectOption(documentId!);
+      await this.selectFramed(selection, documentId!);
       await expect(selection).toHaveValue(documentId!);
       await expect(selection.locator('option:checked')).toContainText(/Version 1/);
     }
@@ -191,12 +191,25 @@ export class ApplicationTrackerPage extends BasePage {
     await expect(card.getByText('Documents prepared', {exact: true})).toBeVisible();
     await this.pauseAfterFeature();
     await this.clearSpotlight();
+
+    await this.updateSpecificApplicationStatus(title, company, 'Mark as Applied', 'applied');
+    await this.updateSpecificApplicationStatus(title, company, 'Mark Interview', 'interview');
+    await this.updateSpecificApplicationStatus(title, company, 'Mark Offer', 'offer');
+    await this.updateSpecificApplicationStatus(title, company, 'Mark Accepted', 'accepted');
+
+    const accepted = this.applicationCardFor(title, company);
+    await this.intentionalScrollNearCenter(accepted);
+    await this.spotlight(accepted);
+    await expect(accepted.locator('.status-accepted')).toBeVisible();
+    await expect(accepted.getByText('Accepted', {exact: true}).first()).toBeVisible();
+    await this.pauseAfterFeature();
+    await this.clearSpotlight();
   }
 
   async expectShowcaseApplicationPersisted(
     title: string,
     company: string,
-    status: 'documents-generated' | 'interview' | 'offer'
+    status: 'documents-generated' | 'interview' | 'offer' | 'accepted'
   ): Promise<void> {
     await this.open();
     const card = this.applicationCardFor(title, company);
@@ -346,8 +359,13 @@ export class ApplicationTrackerPage extends BasePage {
       && /\/api\/jobs\/applications\/[^/]+\/status$/.test(new URL(candidate.url()).pathname));
     await this.clickFramed(card.getByRole('button', { name: actionLabel, exact: true }));
     expect((await response).ok(), `${actionLabel} must update the showcase application.`).toBeTruthy();
-    await expect(this.applicationCardFor(title, company).locator(`.status-${statusClass}`))
-      .toBeVisible({ timeout: 20_000 });
+    const updatedCard = this.applicationCardFor(title, company);
+    const updatedStatus = updatedCard.locator(`.status-${statusClass}`);
+    await expect(updatedStatus).toBeVisible({ timeout: 20_000 });
+    await this.intentionalScrollNearCenter(updatedCard);
+    await this.spotlight(updatedCard);
+    await this.pauseAfterFeature();
+    await this.clearSpotlight();
   }
 
   private async cardWithStatus(status: RegExp) {
