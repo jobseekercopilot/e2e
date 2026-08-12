@@ -88,7 +88,7 @@ export function showcaseCandidate(email: string): ShowcaseCandidate {
         description: 'Delivered tested frontend features and API integrations in an Agile engineering team.'
       }
     ],
-    homeLocation: 'RG1 1AA',
+    homeLocation: 'SW1A 1AA',
     commuteRange: 'Within 25 miles',
     noticePeriodDays: 30,
     commuteDistanceMiles: 25,

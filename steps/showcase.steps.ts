@@ -14,10 +14,14 @@ When('the showcase chapter {string} begins', function (this: JobSeekerWorld, cha
   this.markShowcaseSection(chapter);
 });
 
-When('Alex builds a rich professional profile and evidence library', async function (this: JobSeekerWorld) {
-  if (!this.showcaseCandidate || !this.productShowcasePage) throw new Error('Showcase candidate was not initialised.');
-  await this.productShowcasePage.completeProfessionalProfile(this.showcaseCandidate);
-});
+When(
+  'Alex builds a rich professional profile and evidence library',
+  { timeout: 8 * 60_000 },
+  async function (this: JobSeekerWorld) {
+    if (!this.showcaseCandidate || !this.productShowcasePage) throw new Error('Showcase candidate was not initialised.');
+    await this.productShowcasePage.completeProfessionalProfile(this.showcaseCandidate);
+  },
+);
 
 When('Alex discovers the selected showcase job', async function (this: JobSeekerWorld) {
   if (!this.showcaseCandidate || !this.productShowcasePage) throw new Error('Showcase candidate was not initialised.');

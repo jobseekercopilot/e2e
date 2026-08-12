@@ -329,6 +329,11 @@ still uses the synthetic Alex Taylor identity; no real candidate profile or
 contact details are recorded. The report labels job results and model output as
 point-in-time live evidence. Promote a reviewed recording separately.
 
+Set `SHOWCASE_RUNTIME_PROFILE=isolated-e2e` when the live gateways are being
+exercised against the isolated E2E runtime instead of the persistent manual
+environment. This keeps the synthetic recording data in the E2E databases,
+while retaining all three explicit live-provider and AI-generation gates.
+
 Capacity browser sessions reuse the fixture-backed DISCOVER page objects and
 are deliberately restricted to loopback port 3100:
 

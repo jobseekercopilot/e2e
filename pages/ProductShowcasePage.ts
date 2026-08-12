@@ -160,7 +160,7 @@ export class ProductShowcasePage extends BasePage {
     const editor = profile.locator('#profile-working-preferences-editor');
     for (const label of ['Permanent', 'Full time', 'Flexible', 'Hybrid', 'Remote']) {
       const option = editor.getByLabel(label, { exact: true });
-      if (!(await option.isChecked())) await this.clickInPlace(option);
+      if (!(await option.isChecked())) await this.clickFramed(option);
     }
     await this.intentionalScrollNearCenter(editor);
     await this.pauseAfterFeature();
@@ -173,19 +173,19 @@ export class ProductShowcasePage extends BasePage {
   ): Promise<void> {
     await this.clickFramed(profile.getByRole('button', { name: 'Edit Location and commute', exact: true }));
     const editor = profile.locator('#profile-location-editor');
-    await this.selectInPlace(
+    await this.selectFramed(
       editor.getByLabel('Commute distance', { exact: true }),
       String(candidate.commuteDistanceMiles)
     );
     for (const label of ['Driving', 'Public transport']) {
       const option = editor.getByLabel(label, { exact: true });
-      if (!(await option.isChecked())) await this.clickInPlace(option);
+      if (!(await option.isChecked())) await this.clickFramed(option);
     }
-    await this.humanFillInPlace(
+    await this.humanFillFramed(
       editor.getByLabel('Maximum driving time', { exact: true }),
       String(candidate.maximumDrivingMinutes)
     );
-    await this.humanFillInPlace(
+    await this.humanFillFramed(
       editor.getByLabel('Maximum public-transport time', { exact: true }),
       String(candidate.maximumTransitMinutes)
     );
@@ -197,7 +197,7 @@ export class ProductShowcasePage extends BasePage {
   private async editAvailability(profile: Locator, noticePeriodDays: number): Promise<void> {
     await this.clickFramed(profile.getByRole('button', { name: 'Edit Availability', exact: true }));
     const editor = profile.locator('#profile-availability-editor');
-    await this.humanFillInPlace(
+    await this.humanFillFramed(
       editor.getByLabel('Or notice period in days', { exact: true }),
       String(noticePeriodDays)
     );
@@ -257,7 +257,7 @@ export class ProductShowcasePage extends BasePage {
     );
     const form = dialog.locator('form');
     await expect(form).toBeVisible();
-    await this.selectInPlace(form.locator('select[name="category"]'), evidence.category);
+    await this.selectDialogTarget(form.locator('select[name="category"]'), evidence.category);
 
     await this.humanFillIfPresent(form.locator('input[name="roleTitle"]'), evidence.roleTitle);
     await this.humanFillIfPresent(form.locator('input[name="organisation"]'), evidence.organisation);
@@ -267,24 +267,24 @@ export class ProductShowcasePage extends BasePage {
     await this.humanFillIfPresent(form.locator('input[name="issuer"]'), evidence.issuer);
     await this.humanFillIfPresent(form.locator('input[name="heading"]'), evidence.heading);
     await this.humanFillIfPresent(form.locator('input[name="projectRole"]'), evidence.projectRole);
-    await this.humanFillInPlace(form.locator('textarea[name="description"]'), evidence.description);
+    await this.humanFillDialogTarget(form.locator('textarea[name="description"]'), evidence.description);
 
     if (evidence.category === 'EDUCATION' || evidence.category === 'QUALIFICATION_TRAINING') {
-      await this.selectInPlace(form.locator('select[name="completionStatus"]'), 'Completed');
+      await this.selectDialogTarget(form.locator('select[name="completionStatus"]'), 'Completed');
       await this.fillIfPresent(form.locator('input[name="completionDate"]'), evidence.issueDate);
     } else {
       await this.fillIfPresent(form.locator('input[name="startDate"]'), evidence.startDate);
       if (evidence.ongoing) {
-        await this.clickInPlace(form.locator('input[name="ongoing"]'));
+        await this.clickDialogTarget(form.locator('input[name="ongoing"]'));
       } else {
         await this.fillIfPresent(form.locator('input[name="endDate"]'), evidence.endDate);
       }
     }
 
-    await this.clickInPlace(form.getByRole('button', { name: 'Add more detail', exact: true }));
+    await this.clickDialogTarget(form.getByRole('button', { name: 'Add more detail', exact: true }));
     await this.humanFillIfPresent(form.locator('textarea[name="responsibilities"]'), evidence.responsibilities);
     await this.humanFillIfPresent(form.locator('textarea[name="achievements"]'), evidence.achievements);
-    await this.humanFillInPlace(
+    await this.humanFillDialogTarget(
       form.locator('input[name="skills"]'),
       evidence.demonstratedSkills.join(', ')
     );
@@ -309,13 +309,13 @@ export class ProductShowcasePage extends BasePage {
 
   private async fillIfPresent(locator: Locator, value: string | undefined): Promise<void> {
     if (value !== undefined && await locator.isVisible().catch(() => false)) {
-      await locator.fill(value);
+      await this.fillDialogTarget(locator, value);
     }
   }
 
   private async humanFillIfPresent(locator: Locator, value: string | undefined): Promise<void> {
     if (value !== undefined && await locator.isVisible().catch(() => false)) {
-      await this.humanFillInPlace(locator, value);
+      await this.humanFillDialogTarget(locator, value);
     }
   }
 
@@ -323,6 +323,24 @@ export class ProductShowcasePage extends BasePage {
     await locator.scrollIntoViewIfNeeded();
     await this.page.waitForTimeout(420);
     await this.clickInPlace(locator);
+  }
+
+  private async humanFillDialogTarget(locator: Locator, value: string): Promise<void> {
+    await locator.scrollIntoViewIfNeeded();
+    await this.page.waitForTimeout(420);
+    await this.humanFillInPlace(locator, value);
+  }
+
+  private async fillDialogTarget(locator: Locator, value: string): Promise<void> {
+    await locator.scrollIntoViewIfNeeded();
+    await this.page.waitForTimeout(420);
+    await this.fillInPlace(locator, value);
+  }
+
+  private async selectDialogTarget(locator: Locator, value: string): Promise<void> {
+    await locator.scrollIntoViewIfNeeded();
+    await this.page.waitForTimeout(420);
+    await this.selectInPlace(locator, value);
   }
 
   private selectedJobCard(candidate: ShowcaseCandidate): Locator {

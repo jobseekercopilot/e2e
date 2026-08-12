@@ -4,7 +4,11 @@ const path = require('node:path');
 const dotenv = require('dotenv');
 
 const e2eRoot = path.resolve(__dirname, '..');
-const workspace = path.resolve(e2eRoot, '..');
+const workspace = [path.resolve(e2eRoot, '..'), path.resolve(e2eRoot, '../..')]
+  .find(candidate => fs.existsSync(path.join(candidate, 'infrastructure', '.env.e2e')));
+if (!workspace) {
+  throw new Error('Could not locate the Job Seeker Copilot workspace from this checkout.');
+}
 const infrastructure = path.join(workspace, 'infrastructure');
 const recordingRoot = path.join(e2eRoot, 'demo-recordings');
 const providerMode = (process.env.PROMO_PROVIDER_MODE || 'fixture').toLowerCase();
@@ -12,6 +16,11 @@ if (!['fixture', 'live'].includes(providerMode)) {
   throw new Error('PROMO_PROVIDER_MODE must be fixture or live.');
 }
 const liveShowcase = providerMode === 'live';
+const liveRuntimeProfile = (process.env.SHOWCASE_RUNTIME_PROFILE || 'manual').toLowerCase();
+if (liveShowcase && !['manual', 'isolated-e2e'].includes(liveRuntimeProfile)) {
+  throw new Error('SHOWCASE_RUNTIME_PROFILE must be manual or isolated-e2e.');
+}
+const isolatedLiveShowcase = liveShowcase && liveRuntimeProfile === 'isolated-e2e';
 const outputRelative = process.env.SHOWCASE_OUTPUT_DIR
   || (liveShowcase ? 'demo-recordings/live-review' : 'demo-recordings/final');
 if (path.isAbsolute(outputRelative)) {
@@ -29,17 +38,23 @@ const reportPath = path.join(outputDir, 'recording-report.json');
 const requestedClip = (process.argv[2] || process.env.PROMO_CLIP || '').toUpperCase();
 const chapters = ['ONBOARDING', 'PROFILE', 'DISCOVER', 'GENERATE', 'DOCUMENTS', 'TRACKING', 'REPORTING'];
 
-const envFile = path.join(infrastructure, '.env.e2e');
-if (!fs.existsSync(envFile)) throw new Error(`Missing required local fixture configuration: ${envFile}`);
-const localFixtureEnv = dotenv.parse(fs.readFileSync(envFile));
-const systemDataPort = localFixtureEnv.E2E_SYSTEM_DATA_SERVICE_PORT || '8103';
+const envFile = path.join(
+  infrastructure,
+  liveShowcase && !isolatedLiveShowcase ? '.env.real-job-providers' : '.env.e2e'
+);
+if (!fs.existsSync(envFile)) throw new Error(`Missing required local runtime configuration: ${envFile}`);
+const localRuntimeEnv = dotenv.parse(fs.readFileSync(envFile));
+const systemDataPort = liveShowcase && !isolatedLiveShowcase
+  ? '8103'
+  : (localRuntimeEnv.E2E_SYSTEM_DATA_SERVICE_PORT || '9103');
 if (liveShowcase) {
   for (const variable of ['ALLOW_LIVE_SHOWCASE', 'ALLOW_REAL_PROVIDER_E2E', 'ALLOW_AI_GENERATION']) {
     if ((process.env[variable] || '').toLowerCase() !== 'true') {
       throw new Error(`Live showcase recording requires ${variable}=true explicitly.`);
     }
   }
-  const requestedBaseUrl = process.env.E2E_BASE_URL || 'http://localhost:3000';
+  const requestedBaseUrl = process.env.E2E_BASE_URL
+    || (isolatedLiveShowcase ? 'http://localhost:3100' : 'http://localhost:3000');
   const parsedBaseUrl = new URL(requestedBaseUrl);
   if (parsedBaseUrl.protocol !== 'http:' || !['localhost', '127.0.0.1'].includes(parsedBaseUrl.hostname)) {
     throw new Error('Live showcase recording is restricted to the loopback manual environment.');
@@ -49,9 +64,10 @@ const env = {
   ...process.env,
   SYSTEM_DATA_SERVICE_URL: process.env.SYSTEM_DATA_SERVICE_URL || `http://localhost:${systemDataPort}`,
   SYSTEM_DATA_INTERNAL_CALLER_KEY: process.env.SYSTEM_DATA_INTERNAL_CALLER_KEY
-    || localFixtureEnv.SYSTEM_DATA_INTERNAL_CALLER_KEY,
+    || localRuntimeEnv.SYSTEM_DATA_INTERNAL_CALLER_KEY,
   E2E_PROFILE: 'demo',
-  E2E_BASE_URL: process.env.E2E_BASE_URL || (liveShowcase ? 'http://localhost:3000' : 'http://localhost:3100'),
+  E2E_BASE_URL: process.env.E2E_BASE_URL
+    || (liveShowcase && !isolatedLiveShowcase ? 'http://localhost:3000' : 'http://localhost:3100'),
   HEADLESS: process.env.HEADLESS || 'true',
   SLOW_MO: '0',
   RECORD_VIDEO: 'true',
@@ -70,7 +86,7 @@ const env = {
   TYPING_DELAY_MS: process.env.TYPING_DELAY_MS || '28'
 };
 
-if (!env.SYSTEM_DATA_INTERNAL_CALLER_KEY) throw new Error('The fixture System Data key is not configured.');
+if (!env.SYSTEM_DATA_INTERNAL_CALLER_KEY) throw new Error('The selected runtime System Data key is not configured.');
 if (requestedClip && !chapters.includes(requestedClip)) {
   throw new Error(`Unknown clip ${requestedClip}. Choose one of: ${chapters.join(', ')}`);
 }
@@ -112,10 +128,22 @@ for (const file of fs.readdirSync(webmDir)) {
 
 const previewPreflight = run('pdftoppm', ['-v'], { cwd: e2eRoot, env: process.env });
 requireSuccess(previewPreflight, 'PDF preview renderer preflight');
-const preflight = liveShowcase
-  ? run('./scripts/health-check.sh', ['--profile', 'real-providers'], { cwd: infrastructure, env: process.env })
-  : run('python3', ['-m', 'scripts.demo.check_fixture_modes'], { cwd: infrastructure, env: process.env });
-requireSuccess(preflight, liveShowcase ? 'Real-provider runtime preflight' : 'Fixture-provider preflight');
+const preflight = isolatedLiveShowcase
+  ? run('curl', ['--fail', '--silent', '--show-error', env.E2E_BASE_URL], { env: process.env })
+  : liveShowcase
+    ? run('./scripts/health-check.sh', ['--profile', 'real-providers'], { cwd: infrastructure, env: process.env })
+    : run('python3', ['-m', 'scripts.demo.check_fixture_modes'], { cwd: infrastructure, env: process.env });
+requireSuccess(
+  preflight,
+  isolatedLiveShowcase ? 'Isolated live client preflight'
+    : liveShowcase ? 'Real-provider runtime preflight' : 'Fixture-provider preflight'
+);
+if (isolatedLiveShowcase) {
+  requireSuccess(
+    run('curl', ['--fail', '--silent', '--show-error', `${env.SYSTEM_DATA_SERVICE_URL}/actuator/health`], { env: process.env }),
+    'Isolated System Data preflight'
+  );
+}
 const scenario = run('npx', ['cucumber-js', 'features/showcase/PRODUCT-SHOWCASE.feature'], { cwd: e2eRoot, env });
 
 const rawVideos = fs.readdirSync(webmDir)
@@ -123,7 +151,7 @@ const rawVideos = fs.readdirSync(webmDir)
   .map(file => ({ file, mtime: fs.statSync(path.join(webmDir, file)).mtimeMs }))
   .sort((left, right) => right.mtime - left.mtime);
 if (scenario.exitCode !== 0 || rawVideos.length === 0 || !fs.existsSync(timelinePath)) {
-  fs.writeFileSync(reportPath, `${JSON.stringify({ fixtureMode: !liveShowcase, providerMode, preflight, scenario, rawVideos }, null, 2)}\n`);
+  fs.writeFileSync(reportPath, `${JSON.stringify({ fixtureMode: !liveShowcase, providerMode, liveRuntimeProfile, preflight, scenario, rawVideos }, null, 2)}\n`);
   throw new Error('The showcase scenario failed; recording evidence was retained for diagnosis.');
 }
 
@@ -149,6 +177,7 @@ const report = {
   createdAt: new Date().toISOString(),
   fixtureMode: !liveShowcase,
   providerMode,
+  liveRuntimeProfile,
   realProvidersAllowed: liveShowcase,
   realOpenAiGeneration: liveShowcase,
   sourceFeature: 'features/showcase/PRODUCT-SHOWCASE.feature',
