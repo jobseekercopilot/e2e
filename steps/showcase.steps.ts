@@ -73,9 +73,9 @@ When('Alex reviews and previews both generated documents', async function (this:
   this.demoDownloads.push(...saved.map(download => download.path));
 });
 
-When('Alex progresses the same application to interview', async function (this: JobSeekerWorld) {
+When('Alex reviews the prepared application without marking it as applied', async function (this: JobSeekerWorld) {
   if (!this.showcaseCandidate || !this.applicationTrackerPage) throw new Error('Showcase candidate was not initialised.');
-  await this.applicationTrackerPage.showShowcaseApplication(
+  await this.applicationTrackerPage.showPreparedShowcaseApplication(
     this.showcaseCandidate.selectedJob.title,
     this.showcaseCandidate.selectedJob.company
   );
@@ -88,8 +88,8 @@ Then('Alex sees meaningful job-search reporting', async function (this: JobSeeke
 
 Then('Alex returns to the same selected job', async function (this: JobSeekerWorld) {
   if (!this.showcaseCandidate || !this.productShowcasePage) throw new Error('Showcase candidate was not initialised.');
-  await this.productShowcasePage.openSelectedJob(this.showcaseCandidate);
-  await this.productShowcasePage.expectSelectedJobStatus(this.showcaseCandidate, 'Interview');
+  await this.productShowcasePage.openSelectedJob(this.showcaseCandidate, true);
+  await this.productShowcasePage.expectSelectedJobStatus(this.showcaseCandidate, 'Documents prepared');
   await this.page?.waitForTimeout(this.config.demoBufferMs);
 });
 
@@ -111,7 +111,7 @@ Then(
     const {title, company} = this.showcaseCandidate.selectedJob;
     await this.productShowcasePage.expectProfessionalProfilePersisted(this.showcaseCandidate);
     await this.documentsPage.expectShowcaseDocumentsPersisted(title, company);
-    await this.applicationTrackerPage.expectShowcaseApplicationPersisted(title, company, 'interview');
+    await this.applicationTrackerPage.expectShowcaseApplicationPersisted(title, company, 'documents-generated');
     await this.reportingReconciliationPage.reconcile(1);
   },
 );

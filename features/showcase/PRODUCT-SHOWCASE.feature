@@ -1,7 +1,7 @@
 @demo @promo @showcase @state:REGISTRATION_CLEAN
 Feature: Job Seeker Copilot product showcase
 
-  Scenario: Alex moves from a new account to a tailored application and interview
+  Scenario: Alex moves from a new account to a tailored application pack
     Given the showcase candidate is ready to register
     And the showcase chapter "ONBOARDING" begins
     When he opens Job Seeker Copilot
@@ -22,7 +22,7 @@ Feature: Job Seeker Copilot product showcase
     And Alex reviews and previews both generated documents
 
     When the showcase chapter "TRACKING" begins
-    And Alex progresses the same application to interview
+    And Alex reviews the prepared application without marking it as applied
 
     When the showcase chapter "REPORTING" begins
     Then Alex sees meaningful job-search reporting

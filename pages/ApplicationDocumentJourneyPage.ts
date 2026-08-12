@@ -353,10 +353,18 @@ export class ApplicationDocumentJourneyPage {
         await advert.fill('Synthetic complete software engineering job advert for deterministic fixture-backed generation. '.repeat(4));
       }
     }
-    const confirmation = selector.getByLabel(/I have reviewed this and confirm/i);
-    if (await confirmation.isVisible().catch(() => false)) await this.demoCheck(confirmation);
     const purposePanels = selector.locator('.purpose-panel');
     await expect(purposePanels).toHaveCount(expectedPurposes.length);
+    await expect(purposePanels.first().locator('label.evidence-choice').first()).toBeVisible();
+    await expect(selector.getByText('Loading the complete advert from the provider…', { exact: true }))
+      .toHaveCount(0, { timeout: 60_000 });
+    const confirmation = selector.getByLabel(/I have reviewed this and confirm/i);
+    if (await confirmation.isVisible().catch(() => false) && !await confirmation.isChecked()) {
+      await this.demoCheck(
+        confirmation,
+        selector.locator('label.job-advert-confirmation'),
+      );
+    }
     for (let index = 0; index < expectedPurposes.length; index += 1) {
       const evidenceChoices = purposePanels.nth(index).locator('label.evidence-choice');
       await expect(evidenceChoices.first()).toBeVisible();
@@ -415,13 +423,14 @@ export class ApplicationDocumentJourneyPage {
     await demoCursor.click(locator);
   }
 
-  private async demoCheck(locator: Locator): Promise<void> {
+  private async demoCheck(locator: Locator, visibleTarget?: Locator): Promise<void> {
     if (!e2eConfig.demoRecording) {
       await locator.check();
       return;
     }
     if (await locator.isChecked()) return;
-    await this.demoClick(locator);
+    const label = visibleTarget ?? locator.locator('xpath=ancestor::label[1]');
+    await this.demoClick(await label.count() > 0 ? label : locator);
     await expect(locator).toBeChecked();
   }
 

@@ -28,7 +28,23 @@ export abstract class BasePage {
   }
 
   protected async clickFramed(locator: Locator): Promise<void> {
-    await this.intentionalScrollNearCenter(locator);
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await this.intentionalScrollNearCenter(locator);
+      const fullyVisible = await locator.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.top >= 0
+          && rect.bottom <= window.innerHeight
+          && rect.left >= 0
+          && rect.right <= window.innerWidth
+          && rect.width > 0
+          && rect.height > 0;
+      }).catch(() => false);
+      if (fullyVisible) break;
+      if (attempt === 2) {
+        throw new Error('Demo recording target remained outside the viewport after intentional framing.');
+      }
+      await this.page.waitForTimeout(240);
+    }
     await this.clickInPlace(locator);
   }
 

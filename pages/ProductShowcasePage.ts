@@ -57,8 +57,8 @@ export class ProductShowcasePage extends BasePage {
     expect(count, `${label} must retain at least ${minimum} confirmed entries`).toBeGreaterThanOrEqual(minimum);
   }
 
-  async openSelectedJob(candidate: ShowcaseCandidate): Promise<void> {
-    await this.page.goto('/dashboard');
+  async openSelectedJob(candidate: ShowcaseCandidate, alreadyTracked = false): Promise<void> {
+    if (!alreadyTracked) await this.page.goto('/dashboard');
     await this.clickFramed(this.page.getByTestId('workspace-tab-search'));
     const results = this.page.getByTestId('job-result-card');
     const findJobs = this.page.getByRole('button', { name: 'Find jobs', exact: true });
@@ -86,7 +86,7 @@ export class ProductShowcasePage extends BasePage {
     }
     await expect(card.getByText(/Job Description|Generate CV|Generate Application/i).first())
       .toBeVisible();
-    if (e2eConfig.allowRealProviderE2e) {
+    if (e2eConfig.allowRealProviderE2e && !alreadyTracked) {
       await expect(card.getByTestId('track-application-button')).toBeEnabled();
       await expect(card.getByTestId('generate-documents-button')).toBeEnabled();
     }
@@ -136,7 +136,6 @@ export class ProductShowcasePage extends BasePage {
   }
 
   async showMeaningfulReporting(): Promise<void> {
-    await this.page.goto('/dashboard');
     const reporting = this.page.getByTestId('reporting-panel')
       .or(this.page.locator('app-reporting-panel'))
       .first();
