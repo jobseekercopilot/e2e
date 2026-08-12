@@ -58,7 +58,7 @@ export class ProductShowcasePage extends BasePage {
   }
 
   async openSelectedJob(candidate: ShowcaseCandidate, alreadyTracked = false): Promise<void> {
-    await this.page.goto('/dashboard');
+    if (!alreadyTracked) await this.page.goto('/dashboard');
     await this.clickFramed(this.page.getByTestId('workspace-tab-search'));
     const results = this.page.getByTestId('job-result-card');
     const findJobs = this.page.getByRole('button', { name: 'Find jobs', exact: true });
