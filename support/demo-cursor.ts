@@ -62,11 +62,37 @@ export class PromotionalCursor {
 
     await this.ensureBinding(page);
     await page.evaluate(this.installationScript()).catch(() => undefined);
+    await page.evaluate((cursorId) => {
+      const cursor = document.getElementById(cursorId);
+      const popover = cursor?.closest('.cdk-overlay-popover');
+      if (cursor && popover && !popover.matches(':popover-open')) {
+        document.documentElement.appendChild(cursor);
+      }
+    }, CURSOR_ID).catch(() => undefined);
     const point = await this.clampedControllerPoint(page);
     await page.evaluate((cursorPoint) => {
       window.__promoDemoCursor?.restore(cursorPoint.x, cursorPoint.y);
     }, point).catch(() => undefined);
     this.positions.set(page, point);
+  }
+
+  async raiseAboveOverlay(locator: Locator): Promise<void> {
+    if (!this.enabled) return;
+    const page = locator.page();
+    await this.ensureReady(page);
+    await locator.evaluate((element, cursorId) => {
+      const cursor = document.getElementById(cursorId);
+      const overlay = element.closest('.cdk-overlay-popover:popover-open')
+        ?? element.closest('.cdk-overlay-container');
+      if (!cursor || !overlay) {
+        throw new Error('The promotional cursor could not be mounted in the active overlay.');
+      }
+      overlay.appendChild(cursor);
+    }, CURSOR_ID);
+    const point = await this.currentPosition(page);
+    await page.evaluate((cursorPoint) => {
+      window.__promoDemoCursor?.restore(cursorPoint.x, cursorPoint.y);
+    }, point);
   }
 
   async remove(page: Page): Promise<void> {
@@ -436,7 +462,7 @@ export class PromotionalCursor {
               ring.className = 'promo-cursor-ring';
               ring.style.left = \`\${x}px\`;
               ring.style.top = \`\${y}px\`;
-              document.documentElement.appendChild(ring);
+              (cursor.parentElement || document.documentElement).appendChild(ring);
               window.setTimeout(() => ring.remove(), 420);
             },
             hide() {
