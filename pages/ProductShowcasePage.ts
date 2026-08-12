@@ -136,7 +136,6 @@ export class ProductShowcasePage extends BasePage {
   }
 
   async showMeaningfulReporting(): Promise<void> {
-    await this.page.goto('/dashboard');
     const reporting = this.page.getByTestId('reporting-panel')
       .or(this.page.locator('app-reporting-panel'))
       .first();
