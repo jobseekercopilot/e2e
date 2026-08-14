@@ -19,16 +19,19 @@ Then('relevant job results should be visible', async function (this: JobSeekerWo
   await this.jobSearchPage?.waitForResults();
 });
 
-Then('NHS and apprenticeship vacancies should be visible', async function (this: JobSeekerWorld) {
-  await this.jobSearchPage?.expectSpecialistVacancies();
-});
+Then(
+  'the relevant apprenticeship should be visible and the unrelated NHS vacancy filtered',
+  async function (this: JobSeekerWorld) {
+    await this.jobSearchPage?.expectRelevantSpecialistVacancy();
+  }
+);
 
 Then('apprenticeship training and location details should be preserved', async function (this: JobSeekerWorld) {
   await this.jobSearchPage?.expectApprenticeshipDetails();
 });
 
-When('he starts both specialist vacancies as applications', async function (this: JobSeekerWorld) {
-  await this.jobSearchPage?.startSpecialistApplications();
+When('he starts the relevant apprenticeship as an application', async function (this: JobSeekerWorld) {
+  await this.jobSearchPage?.startRelevantSpecialistApplication();
 });
 
 Then('the promo shot scrolls through job results', async function (this: JobSeekerWorld) {

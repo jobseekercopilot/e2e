@@ -1,6 +1,6 @@
 # User-capability E2E coverage matrix
 
-Status values: **Covered**, **Partial**, **Explicit live**, or **Gap**. `Fixture` means deterministic full-stack doubles; it does not claim the real external provider. Results are current to 11 August 2026.
+Status values: **Covered**, **Partial**, **Explicit live**, or **Gap**. `Fixture` means deterministic full-stack doubles; it does not claim the real external provider. Results are current to 14 August 2026.
 
 | User capability | Critical smoke | Core regression | Extended / negative | Promo | Capacity | Boundary | Status |
 |---|---|---|---|---|---|---|---|
@@ -10,7 +10,7 @@ Status values: **Covered**, **Partial**, **Explicit live**, or **Gap**. `Fixture
 | Password reset | No | Yes | Enumeration, token persistence and session revocation | No | No | Fixture or LocalStack SES | Covered |
 | Profile setup and edits | Yes | Yes | Unavailable location and duplicate save | REGISTER | No | Fixture postcode/location | Covered |
 | Job search and provider presentation | Yes | Yes | Real-provider stabilisation separately gated | DISCOVER | DISCOVER | Five fixture providers | Covered |
-| Job matching relevance | Meaningful match | Seven-persona and showcase assertions | Provider/result diversity below browser | DISCOVER | DISCOVER | Fixture matching | Covered |
+| Job matching relevance | Meaningful match | Three software-role fixture paths plus four explained non-software empty states | Aligned non-software fixture coverage remains incomplete | DISCOVER | DISCOVER | Fixture matching | Partial |
 | Location selection | Yes | Yes | Unavailable-provider feedback | REGISTER | No | Fixture location | Covered |
 | Commute preferences and assessment | Preferences | Yes | Unavailable location and field-contract assertions | DISCOVER | DISCOVER | Fixture location; Google disabled | Covered |
 | View/select a job | Yes | Yes | Safe source-link policies below browser | DISCOVER | DISCOVER | Fixture jobs | Covered |
@@ -22,7 +22,7 @@ Status values: **Covered**, **Partial**, **Explicit live**, or **Gap**. `Fixture
 | Document version/history and download | No | Exact immutable references and downloads | Cross-user denial | ORGANISE | No | Synthetic documents | Covered |
 | Attach/select documents for application | Representative generate | Upload/generate/not-now combinations | Reporting/content boundary | APPLY | No | Fixture generation | Covered |
 | Recover from validation/dependency failures | Registration validation | Location, password, uploads and stale evidence | Security/accessibility/provider-failure profiles | No | No | Controlled failures | Covered |
-| Specialist NHS/apprenticeship flow | Yes | Yes | Explicit bounded live path exists | DISCOVER | DISCOVER | Fixture in regression | Covered |
+| Specialist NHS/apprenticeship filtering | Apprenticeship start; unrelated NHS vacancy filtered | Apprenticeship positive and NHS negative assertions | Explicit bounded live path exists | DISCOVER | DISCOVER | Fixture in regression | Partial |
 | Provider outage and explicit failure contract | Lower-layer + live evidence | Deterministic stack-level `502` scenario | Provider-failure profile and component degradation tests | No | No | Fixture failure mode | Covered |
 | Reporting/activity | No | Empty/small/rich exact reconciliation | Content-free, private/no-store reporting | REPORT | No | Fixture reporting | Covered |
 | Payment/pricing/wallet | Authenticated same-origin contract | No unexplained 404 traffic | 401, CSRF, identity and downstream response boundaries | REPORT | No | Deterministic service | Covered |
@@ -33,15 +33,15 @@ The governed `real-world-personas-v2` state provides seven machine-readable prof
 
 | Persona | Profile/search | Upload | Generate | Track/return | Boundary status |
 |---|---:|---:|---:|---:|---|
-| Minimal | Yes | Applicable | Yes | Yes | Sparse browser replay + live grounding |
-| Typical | Yes | Yes | Yes | Yes | Complete normal journey |
-| Rich | Yes | Yes | Yes | Yes | Browser replay + live grounding |
-| Very rich | Yes | Yes | Yes | Yes | 18-engagement boundary; not maximum scale |
-| Uploaded-CV-first | Yes | Real PDF and DOCX | Yes | Yes | Exact SHA/reference assertions |
-| Manual-profile-first | Yes | Later upload | Yes | Yes | Existing structured fields survive |
-| Career-changer | Yes | Applicable | Yes | Yes | Transferable evidence stays grounded |
+| Minimal | Yes | Not in replay | Gap — no aligned fixture | Profile reload | Sparse evidence persists; explained administrative empty state |
+| Typical | Yes | Not in replay | Yes | Tracked application reference | Complete generated-CV journey |
+| Rich | Yes | Not in replay | Yes | Tracked application reference | Detailed evidence survives reload and grounds generation |
+| Very rich | Yes | Not in replay | Yes | Tracked application reference | 18-engagement boundary; not maximum scale |
+| Uploaded-CV-first | Yes | Gap — no aligned fixture | Gap — no aligned fixture | Profile reload | Finance evidence persists; file-first journey needs an aligned vacancy |
+| Manual-profile-first | Yes | Gap — no aligned fixture | Gap — no aligned fixture | Profile reload | Explained empty state; later-upload merge remains unproved in-browser |
+| Career-changer | Yes | Not in replay | Gap — no aligned fixture | Profile reload | Teaching evidence remains intact; grounded target-role generation remains unproved |
 
-`Yes` denotes current deterministic product/contract and purpose-sized browser coverage. It does not imply a paid call for every row. Bounded Reed, Adzuna, JSearch and OpenAI validation is reported separately; Google and live Stripe are not configured.
+This table records only the shared `REAL_WORLD_PERSONAS` browser replay; upload and broader document coverage are recorded in the capability rows above. “No aligned fixture” records an intentional, asserted empty state in the software-focused catalogue, which has no aligned administrative, finance or project-delivery vacancy, rather than a skipped or fabricated journey. It does not imply a paid call for every row. Bounded Reed, Adzuna, JSearch and OpenAI validation is reported separately; Google and live Stripe are not configured.
 
 ## Suite categories
 

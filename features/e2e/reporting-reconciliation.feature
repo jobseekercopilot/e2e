@@ -7,10 +7,10 @@ Feature: Reporting reconciles exact persisted application history
     Then reporting reconciles exactly 0 source applications through the API and UI
 
   @state:CROSS_USER_SECURITY
-  Scenario: Small user reporting follows three browser-created applications
+  Scenario: Small user reporting follows two browser-created applications
     Given the first cross-user identity is signed in
-    When the user creates 3 saved applications without documents
-    Then reporting reconciles exactly 3 source applications through the API and UI
+    When the user creates 2 saved applications without documents
+    Then reporting reconciles exactly 2 source applications through the API and UI
 
   @state:DEMO_READY
   Scenario: Rich history reporting follows the governed nine-application dataset

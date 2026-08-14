@@ -444,7 +444,13 @@ export class ApplicationDocumentJourneyPage {
     const completionState = this.selectedJobCard().getByText(expectedLabel).first()
       .or(this.page.locator('#toast-notification').getByText(expectedLabel).first())
       .or(this.selectedJobCard().getByText('Documents prepared', { exact: true }));
-    await expect(completionState.first()).toBeVisible({ timeout: 12 * 60_000 });
+    const failureState = selectedCard.locator('.generation-error').first();
+    await expect(completionState.first().or(failureState).first())
+      .toBeVisible({ timeout: 12 * 60_000 });
+    if (await failureState.isVisible()) {
+      const message = (await failureState.innerText()).trim();
+      throw new Error(`Document generation failed before completion: ${message}`);
+    }
     if (e2eConfig.demoRecording) {
       const prepared = selectedCard.locator('.status-badge')
         .filter({ hasText: 'Documents prepared' })

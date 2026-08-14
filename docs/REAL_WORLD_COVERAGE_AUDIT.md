@@ -1,4 +1,4 @@
-# Real-world product coverage audit — closure update, 11 August 2026
+# Real-world product coverage audit — closure update, 14 August 2026
 
 ## Executive summary
 
@@ -41,17 +41,27 @@ retains idempotent prepare, verify and reset with seven users/profiles.
 
 | Persona | Purpose | Browser result | Grounding result |
 | --- | --- | --- | --- |
-| `minimal-profile` | Sparse/null handling | Register/onboard, sparse profile, search, match and generation pass | Restrained output; no invented identity, employer or qualification |
-| `typical-profile` | Ordinary returning user | Complete normal journey passes | Useful evidence-grounded tailoring |
-| `rich-profile` | Detailed employment/qualification mapping | Profile, match, generation and Documents pass | Prioritises supplied evidence |
-| `very-rich-profile` | Realistic boundary shape | Load/edit/save/reload/search/match/generation pass | Coherent long-input result; no unsupported claims |
-| `uploaded-cv-first` | File-first application path | Upload/manage/search/generation pass | Uploaded evidence used only where supported |
-| `manual-profile-first` | Structured data before later upload | Profile survives subsequent upload and generation | Existing profile remains authoritative |
-| `career-changer` | Transferable evidence without invented target experience | Profile, match and generation pass | Teaching history remains teaching history; transferable skills are reframed |
+| `minimal-profile` | Sparse/null handling | Sparse profile survives reload; the software-focused catalogue reports no administrative match | No irrelevant software/NHS application or document is created; sparse generation remains a fixture gap |
+| `typical-profile` | Ordinary returning user | Profile reload, search/match, generated CV and tracked application reference pass | Useful evidence-grounded tailoring |
+| `rich-profile` | Detailed employment/qualification mapping | Profile reload, matching, generated CV and tracked application reference pass | Prioritises supplied evidence |
+| `very-rich-profile` | Realistic boundary shape | Load/reload/search/match/generation pass | Coherent long-input result; no unsupported claims |
+| `uploaded-cv-first` | File-first application path | Finance profile survives reload; the software-focused catalogue reports no accounts/payroll match | File-first upload and generation remain a gap without an aligned fixture vacancy |
+| `manual-profile-first` | Structured data before later upload | Profile survives reload; the software-focused fixture search reports no aligned vacancy | No unsuitable application is created; later-upload/non-destructive-merge browser proof remains a gap without an aligned vacancy |
+| `career-changer` | Transferable evidence without invented target experience | Profile survives reload; the software-focused fixture search reports no aligned vacancy | Teaching history is retained and no target-role experience is invented; grounded career-change generation remains a fixture gap |
 
-The full browser regression includes the shared seven-persona replay and passed
-23/23 core E2E scenarios. Purpose-sized scenarios avoid seven copies of one
-expensive journey while retaining the meaningful assumption for each profile.
+The full browser regression includes the shared seven-persona replay. The three
+software-role personas with available deterministic fixture results exercise
+matching and document generation; the four administrative, finance and
+project-delivery personas verify that a software-focused fixture catalogue with
+no aligned vacancies yields an explained empty state rather than an unsuitable
+application. Purpose-sized scenarios avoid seven
+copies of one expensive journey while retaining the explicit outcome for each
+profile.
+
+The canonical persona `purpose` and `capabilities` describe the intended user
+shapes and product goals. They are not claims that the shared replay proves
+every stated outcome; the file-first, later-upload and career-change generation
+gaps above are the current browser evidence boundary.
 
 ## Profile source of truth and boundary
 
@@ -73,7 +83,7 @@ does not write candidate profile fields.
 
 The very-rich fixture represents a plausible senior consultant with eighteen
 distinct engagements. It remains below the product's explicit maxima and is a
-realistic boundary, not a maximum transport/database proof. Save/reload,
+realistic boundary, not a maximum transport/database proof. Load/reload,
 rendering, matching and generation pass within this boundary; no larger claim
 is made.
 
@@ -146,8 +156,8 @@ core regression passes. No metric is accepted solely because a chart renders.
 | Reed | VALIDATED LIVE + deterministic | Bounded real search plus governed synthetic search/detail |
 | Adzuna | VALIDATED LIVE + deterministic | Bounded real search; an empty bounded result is treated as valid |
 | JSearch/RapidAPI | VALIDATED LIVE + deterministic | Bounded real search plus adapter/rate boundary |
-| NHS Jobs | VALIDATED LIVE + deterministic | Current specialist path exercised |
-| Find an apprenticeship | VALIDATED LIVE + deterministic | Current specialist path exercised |
+| NHS Jobs | VALIDATED LIVE + deterministic | Historical bounded live sampling; the current deterministic browser path verifies that the nurse vacancy is filtered for a software target |
+| Find an apprenticeship | VALIDATED LIVE + deterministic | Historical bounded live sampling plus a current positive aligned apprenticeship browser path |
 | OpenAI | VALIDATED LIVE + deterministic | Six-shape domain matrix and exact spend ledger |
 | Google location/maps | NOT CONFIGURED | Disabled in current beta topology; fixture location does not claim live Google |
 | Stripe | DETERMINISTICALLY VALIDATED | No usable live credentials/transaction in this run |
@@ -159,15 +169,15 @@ public evidence site. No provider payload was promoted into governed fixtures.
 
 | Check | Result |
 | --- | --- |
-| Full Cucumber regression | PASS: 32 scenarios / 244 steps (5 smoke, 23 core E2E, 1 security, 1 provider failure, 2 accessibility) |
-| Browser support suite | PASS: 54/54 |
-| Angular client | PASS: 460/460, lint and production Docker build |
-| CV/cover-letter domain | PASS: 248/248 |
-| Infrastructure | PASS: 109/109 |
+| Full Cucumber regression | PASS: 36 scenarios / 276 steps (5 smoke, 27 core E2E, 1 security, 1 provider failure, 2 accessibility) |
+| Browser support suite | PASS: 59/59, plus independent framework smoke and accessibility checks |
+| Angular client | PASS: 487/487, lint and production Docker build |
+| CV/cover-letter domain | PASS: 277/277 |
+| Infrastructure | PASS: 117/117 |
 | Application Tracker | PASS: 154 tests |
-| Document Generation Gateway | PASS: 131 tests |
-| Document Store | PASS: 152 tests |
-| Job Service | PASS: 90 tests, one intentional skip |
+| Document Generation Gateway | PASS: 142 tests |
+| Document Store | PASS: 163 tests |
+| Job Service | PASS: 112 tests, one intentional skip |
 | System Data | PASS: 86 tests |
 | User Management Gateway | PASS: 93 tests |
 | Authoritative showcase pre-recording | PASS: 1 scenario / 26 steps |

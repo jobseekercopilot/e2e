@@ -77,17 +77,41 @@ export class JobSearchPage extends BasePage {
     const response = this.profileSearchResponse;
     if (!response) throw new Error('No profile-backed job search response was captured.');
     const resultGroups = searchResultGroups(response);
-    const provenance = resultGroups.flatMap(group => array(group['providerResults']))
+    const successfulProviderResults = resultGroups
+      .flatMap(group => array(group['providerResults']))
       .filter(isRecord)
-      .map(result => result['dataProvenance'])
-      .filter(isRecord);
-    expect(provenance.some(value =>
-      value['providerMode'] === 'FIXTURE'
-      && value['dataOrigin'] === 'FIXTURE'
-      && value['resultSource'] === 'PROVIDER_RESPONSE'
-      && value['externalCallsEnabled'] === false
-      && typeof value['retrievedAtUtc'] === 'string'
-    )).toBe(true);
+      .filter(result => result['status'] === 'SUCCESS');
+    expect(successfulProviderResults.length).toBeGreaterThan(0);
+    for (const result of successfulProviderResults) {
+      const provider = String(result['provider'] ?? '');
+      expect(['REED', 'ADZUNA', 'JSEARCH', 'NHS_JOBS', 'APPRENTICESHIPS'])
+        .toContain(provider);
+      const value = result['dataProvenance'];
+      expect(isRecord(value), 'Every successful provider result must report provenance.')
+        .toBe(true);
+      if (!isRecord(value)) continue;
+      const source = value['resultSource'];
+      const cacheEvidenceIsValid = source !== 'JOB_SERVICE_CACHE'
+        || (typeof value['cacheAgeSeconds'] === 'number'
+          && Number.isFinite(value['cacheAgeSeconds'])
+          && value['cacheAgeSeconds'] >= 0);
+      expect(value['providerMode']).toBe('FIXTURE');
+      expect(value['dataOrigin']).toBe('FIXTURE');
+      expect(['PROVIDER_RESPONSE', 'JOB_SERVICE_CACHE']).toContain(source);
+      expect(cacheEvidenceIsValid).toBe(true);
+      expect(value['externalCallsEnabled']).toBe(false);
+      if (['REED', 'ADZUNA', 'JSEARCH'].includes(provider)) {
+        expect(value['datasetId']).toBe('uk-software-developer-demo');
+        expect(value['datasetVersion']).toBe('1.1.0');
+        expect(value['scenario']).toBe('DEMO_READY');
+      } else {
+        expect(value['datasetId'] ?? null).toBeNull();
+        expect(value['datasetVersion'] ?? null).toBeNull();
+        expect(value['scenario'] ?? null).toBeNull();
+      }
+      expect(typeof value['retrievedAtUtc']).toBe('string');
+      expect(Number.isNaN(Date.parse(String(value['retrievedAtUtc'])))).toBe(false);
+    }
 
     const assessedJobs = resultGroups.flatMap(group => array(group['jobs']))
       .filter(isRecord)
@@ -169,14 +193,16 @@ export class JobSearchPage extends BasePage {
     if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
   }
 
-  async expectSpecialistVacancies(): Promise<void> {
+  async expectRelevantSpecialistVacancy(): Promise<void> {
     await this.waitForResults();
     const workspace = this.byTestId('job-results-workspace');
-    await expect(workspace.getByTestId('specialist-job-badge').filter({ hasText: /^NHS vacancy$/ })).toBeVisible();
     await expect(workspace.getByTestId('specialist-job-badge').filter({ hasText: /^Apprenticeship$/ })).toBeVisible();
+    await expect(workspace.getByTestId('specialist-job-badge').filter({ hasText: /^NHS vacancy$/ })).toHaveCount(0);
+    await expect(workspace.getByText('Community Staff Nurse', {exact: true})).toHaveCount(0);
+    await expect(workspace).toContainText('1 unrelated occupation filtered before ranking.');
 
     await workspace.getByRole('button', { name: /^Filter$/ }).click();
-    await expect(workspace.getByRole('button', { name: /^NHS Jobs \(1\)$/ })).toBeVisible();
+    await expect(workspace.getByRole('button', {name: /^NHS Jobs/})).toHaveCount(0);
     await workspace.getByRole('button', { name: /^Find an apprenticeship \(1\)$/ }).click();
     await expect(workspace.getByText('Software Developer Apprentice', { exact: true })).toBeVisible();
   }
@@ -197,30 +223,13 @@ export class JobSearchPage extends BasePage {
     );
   }
 
-  async startSpecialistApplications(): Promise<void> {
+  async startRelevantSpecialistApplication(): Promise<void> {
     await this.startSpecialistApplication('Software Developer Apprentice', {
       provider: 'APPRENTICESHIPS',
       externalJobId: 'VAC1000001',
       listingUrl: 'https://www.findapprenticeship.service.gov.uk/apprenticeship/VAC1000001',
       applyUrl: 'https://www.findapprenticeship.service.gov.uk/apprenticeship/VAC1000001',
       attributionLabel: 'Vacancy source: Find an apprenticeship'
-    });
-
-    const workspace = this.byTestId('job-results-workspace');
-    const nhsFilter = workspace.getByRole('button', { name: /^NHS Jobs \(1\)$/ });
-    if (!(await nhsFilter.isVisible().catch(() => false))) {
-      await workspace.getByRole('button', { name: /^Filter/ }).click();
-    }
-    await nhsFilter.click();
-
-    await this.startSpecialistApplication('Community Staff Nurse', {
-      provider: 'NHS_JOBS',
-      externalJobId: 'nhs-fixture-1',
-      listingUrl: 'https://www.jobs.nhs.uk/candidate/jobadvert/NHS-FIXTURE-1',
-      attributionLabel: 'Vacancy source: NHS Jobs',
-      attributionSourceUrl: 'https://www.jobs.nhs.uk/',
-      licenceUrl: 'https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/',
-      disclaimer: 'NHS Jobs does not endorse Job Seeker Copilot.'
     });
   }
 
