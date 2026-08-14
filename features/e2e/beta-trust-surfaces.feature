@@ -15,7 +15,8 @@ Feature: Beta trust surfaces remain truthful across the fixture-backed stack
   @state:DEMO_READY @critical-smoke
   Scenario: Profile matching and provider provenance degrade without invented confidence
     Given the primary named-state user is signed in
-    When the owner searches with the confirmed named-state profile
+    When the owner completes the required job-search preferences
+    And the owner searches with the confirmed named-state profile
     Then the response and card show deterministic profile matching and provider provenance
     And query-only and unavailable fixture projections remain truthfully labelled
 

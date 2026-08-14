@@ -1,5 +1,6 @@
 import {Then, When} from '@cucumber/cucumber';
 import {syntheticProfessionalContact} from '../support/beta-trust-fixtures';
+import {alexTaylorDemoUser} from '../support/demo-data';
 import type {JobSeekerWorld} from '../support/world';
 
 When('the owner saves synthetic professional contact details', async function (
@@ -36,6 +37,13 @@ When('the owner searches with the confirmed named-state profile', async function
 ) {
   if (!this.jobSearchPage) throw new Error('Job search page was not initialised.');
   await this.jobSearchPage.searchWithConfirmedProfileEvidence();
+});
+
+When('the owner completes the required job-search preferences', async function (
+  this: JobSeekerWorld
+) {
+  if (!this.profilePage) throw new Error('Claimant profile page was not initialised.');
+  await this.profilePage.updateHomeLocation(alexTaylorDemoUser().homeLocation);
 });
 
 Then('the response and card show deterministic profile matching and provider provenance', async function (
