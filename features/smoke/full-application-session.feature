@@ -33,14 +33,14 @@ Feature: Full application session and profile smoke
     Then the canonical home location "Reading, South East (RG1 1AA)" is visible
 
   @state:PROFILE_LOCATION
-  Scenario: Specialist NHS and apprenticeship vacancies are presented end to end
+  Scenario: Specialist vacancies respect occupation relevance end to end
     Given the named-state user "profile-primary" has an account
     When he opens Job Seeker Copilot
     And he signs in with the named-state account
     And he completes the remaining job search preferences
     And he opens the job search workspace
-    Then NHS and apprenticeship vacancies should be visible
+    Then the relevant apprenticeship should be visible and the unrelated NHS vacancy filtered
     And apprenticeship training and location details should be preserved
-    When he starts both specialist vacancies as applications
+    When he starts the relevant apprenticeship as an application
     And he opens the application tracker
-    Then both specialist applications should be visible
+    Then only the relevant specialist application should be visible

@@ -7,7 +7,7 @@ Then(
   {timeout: 12 * 60_000},
   async function (this: JobSeekerWorld) {
     if (!this.browser || !this.namedStateDefinition) {
-      throw new Error('The persona browser replay requires a browser and PERSONA_BOUNDARIES state.');
+      throw new Error('The persona browser replay requires a browser and REAL_WORLD_PERSONAS state.');
     }
     await new PersonaBrowserReplayPage(this.browser, this.config.baseUrl)
       .replay(this.namedStateDefinition.identities);

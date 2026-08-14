@@ -1,6 +1,6 @@
 @e2e @personas @core-regression
-Feature: Every governed persona remains usable in the real browser product
+Feature: Governed personas preserve profile evidence through truthful browser outcomes
 
   @state:REAL_WORLD_PERSONAS
-  Scenario: Seven distinct profiles survive reload, search, matching, documents and generation
+  Scenario: Seven distinct profiles survive reload and follow explicit fixture-backed outcomes
     Then all seven governed personas complete their supported browser journeys

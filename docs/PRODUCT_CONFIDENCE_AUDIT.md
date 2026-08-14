@@ -1,6 +1,6 @@
 # Product-confidence automation audit
 
-Date: 11 August 2026
+Date: 14 August 2026
 
 ## Outcome
 
@@ -23,15 +23,16 @@ scenario and all 26 steps.
 
 ## Current validation
 
-- Full browser regression: 32/32 scenarios and 244/244 steps across smoke, core
+- Full browser regression: 36/36 scenarios and 276/276 steps across smoke, core
   E2E, security, provider failure and accessibility.
-- Browser support suite: 54/54.
-- Angular client: 460/460 tests, lint and production Docker build passed.
-- CV/cover-letter domain: 248/248, including grounding rejection, repair and
+- Browser support suite: 59/59; the framework smoke and accessibility checks
+  also passed independently.
+- Angular client: 487/487 tests, lint and production Docker build passed.
+- CV/cover-letter domain: 277/277, including grounding rejection, repair and
   quarantine paths under claim policy 2.24.0.
-- Infrastructure: 109/109, strict Pages build passed.
-- Six changed Java services: 706 tests, zero failures/errors and one intentional
-  skip in Job Service.
+- Infrastructure: 117/117, including the isolated E2E runtime policy.
+- The four Java services changed by the final stress-test fixes ran 503 tests,
+  with zero failures/errors and one intentional skip in Job Service.
 - Seven governed personas pass purpose-sized browser replay as part of core
   regression; System Data retains 7/7 lifecycle verification.
 - Reporting retains exact empty, small and rich-history expected-versus-actual

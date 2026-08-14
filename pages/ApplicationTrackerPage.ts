@@ -37,13 +37,13 @@ export class ApplicationTrackerPage extends BasePage {
     await this.clearSpotlight();
   }
 
-  async expectSpecialistApplications(): Promise<void> {
-    await expect(
-      this.applicationCardFor('Community Staff Nurse', 'Example NHS Foundation Trust')
-    ).toBeVisible({ timeout: 20_000 });
+  async expectRelevantSpecialistApplication(): Promise<void> {
     await expect(
       this.applicationCardFor('Software Developer Apprentice', 'Example Digital Ltd')
     ).toBeVisible({ timeout: 20_000 });
+    await expect(
+      this.applicationCardFor('Community Staff Nurse', 'Example NHS Foundation Trust')
+    ).toHaveCount(0);
   }
 
   async showShowcaseApplication(title: string, company: string): Promise<void> {
