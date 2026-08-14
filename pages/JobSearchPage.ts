@@ -56,7 +56,7 @@ export class JobSearchPage extends BasePage {
   }
 
   async searchWithConfirmedProfileEvidence(): Promise<void> {
-    await this.page.goto('/dashboard');
+    await this.page.goto('/');
     await this.byTestId('workspace-tab-search').click();
     const findJobs = this.page.getByRole('button', {name: 'Find jobs', exact: true});
     await expect(findJobs).toBeEnabled();
