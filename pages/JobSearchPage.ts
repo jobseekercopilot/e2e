@@ -1,4 +1,4 @@
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, type Locator, type Page, type Route } from '@playwright/test';
 import { BasePage } from './base.page';
 
 export interface JobSearchFixture {
@@ -9,6 +9,8 @@ export interface JobSearchFixture {
 }
 
 export class JobSearchPage extends BasePage {
+  private profileSearchResponse?: Record<string, unknown>;
+
   constructor(page: Page) {
     super(page);
   }
@@ -51,6 +53,120 @@ export class JobSearchPage extends BasePage {
         .or(this.page.getByText(/Software Developer|Software Engineer|Job Matches/i))
         .first()
     ).toBeVisible({ timeout: 30_000 });
+  }
+
+  async searchWithConfirmedProfileEvidence(): Promise<void> {
+    await this.page.goto('/');
+    await this.byTestId('workspace-tab-search').click();
+    const findJobs = this.page.getByRole('button', {name: 'Find jobs', exact: true});
+    await expect(findJobs).toBeEnabled();
+    const searched = this.page.waitForResponse(response =>
+      response.request().method() === 'POST'
+      && new URL(response.url()).pathname === '/api/jobs/search');
+    await findJobs.click();
+    const response = await searched;
+    expect(response.ok(), 'Fixture-backed profile search must succeed.').toBe(true);
+    const body: unknown = await response.json();
+    if (!isRecord(body)) throw new Error('Job search returned a non-object response.');
+    this.profileSearchResponse = body;
+    await this.waitForResults();
+    await expect(this.byTestId('job-search-trust-summary')).toBeVisible();
+  }
+
+  async assertDeterministicProfileMatchAndProviderProvenance(): Promise<void> {
+    const response = this.profileSearchResponse;
+    if (!response) throw new Error('No profile-backed job search response was captured.');
+    const resultGroups = searchResultGroups(response);
+    const provenance = resultGroups.flatMap(group => array(group['providerResults']))
+      .filter(isRecord)
+      .map(result => result['dataProvenance'])
+      .filter(isRecord);
+    expect(provenance.some(value =>
+      value['providerMode'] === 'FIXTURE'
+      && value['dataOrigin'] === 'FIXTURE'
+      && value['resultSource'] === 'PROVIDER_RESPONSE'
+      && value['externalCallsEnabled'] === false
+      && typeof value['retrievedAtUtc'] === 'string'
+    )).toBe(true);
+
+    const assessedJobs = resultGroups.flatMap(group => array(group['jobs']))
+      .filter(isRecord)
+      .filter(job => isRecord(job['matchAssessment']));
+    expect(assessedJobs.some(job => {
+      const match = job['matchAssessment'] as Record<string, unknown>;
+      return match['provenance'] === 'DETERMINISTIC_PROFILE'
+        && match['candidateProfileUsed'] === true
+        && typeof match['score'] === 'number'
+        && array(match['reasons']).length > 0;
+    })).toBe(true);
+
+    await expect(this.byTestId('job-search-provider-mode'))
+      .toContainText('Fixture-backed provider data');
+    await expect(this.byTestId('job-search-trust-summary'))
+      .toContainText('deterministic profile and advert evidence, not an AI opinion');
+    const card = this.byTestId('job-result-card').first();
+    await expect(card.getByTestId('job-match-score')).toBeVisible();
+    await this.expand(card);
+    await expect(card.getByTestId('job-match-explanation')).toContainText('Explainable profile match');
+    await expect(card.getByTestId('job-match-explanation'))
+      .toContainText('deterministic rules, not an AI opinion');
+  }
+
+  async assertQueryOnlyAndUnavailableFallbacks(): Promise<void> {
+    await this.refreshWithProjection(body => projectMatching(body, 'QUERY_ONLY'));
+    const queryCard = this.byTestId('job-result-card').first();
+    await expect(queryCard.getByTestId('job-match-score')).toContainText('title alignment');
+    await this.expand(queryCard);
+    await expect(queryCard.getByTestId('job-match-explanation')).toContainText('Query-only estimate');
+    await expect(queryCard.getByTestId('job-match-explanation'))
+      .toContainText('Why this advert matches your search');
+    await expect(queryCard.getByTestId('job-match-explanation'))
+      .not.toContainText('Why this job matches your profile');
+
+    await this.refreshWithProjection(body => projectMatching(body, 'UNAVAILABLE'));
+    await expect(this.byTestId('job-search-trust-summary'))
+      .toContainText('provider and advert ordering because profile matching was unavailable');
+    await expect(this.byTestId('job-result-card').getByTestId('job-match-score')).toHaveCount(0);
+    await expect(this.byTestId('job-result-card').getByTestId('job-match-explanation')).toHaveCount(0);
+    await expect(this.byTestId('job-search-provider-mode'))
+      .toContainText('Fixture-backed provider data');
+  }
+
+  private async refreshWithProjection(
+    projection: (body: Record<string, unknown>) => Record<string, unknown>
+  ): Promise<void> {
+    const pattern = '**/api/jobs/search';
+    let projected = false;
+    const handler = async (route: Route): Promise<void> => {
+      if (projected || route.request().method() !== 'POST') {
+        await route.continue();
+        return;
+      }
+      const upstream = await route.fetch();
+      const body: unknown = await upstream.json();
+      if (!isRecord(body)) throw new Error('Fixture search projection received invalid JSON.');
+      projected = true;
+      await route.fulfill({response: upstream, json: projection(body)});
+    };
+    await this.page.route(pattern, handler);
+    try {
+      const response = this.page.waitForResponse(candidate =>
+        candidate.request().method() === 'POST'
+        && new URL(candidate.url()).pathname === '/api/jobs/search');
+      await this.byTestId('job-results-workspace')
+        .getByRole('button', {name: 'Refresh', exact: true}).click();
+      expect((await response).ok(), 'Projected fixture search must remain successful.').toBe(true);
+      expect(projected, 'The fixture search response was not projected.').toBe(true);
+      await expect(this.byTestId('job-results-workspace')
+        .getByRole('button', {name: 'Refresh', exact: true})).toBeEnabled();
+    } finally {
+      await this.page.unroute(pattern, handler);
+    }
+  }
+
+  private async expand(card: Locator): Promise<void> {
+    const toggle = card.getByRole('button', {name: 'Toggle job details', exact: true});
+    if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
   }
 
   async expectSpecialistVacancies(): Promise<void> {
@@ -200,4 +316,53 @@ export class JobSearchPage extends BasePage {
     await expect(choices).toBeVisible();
     await choices.getByRole('button', { name: 'Close document choices' }).click();
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function array(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function searchResultGroups(response: Record<string, unknown>): Record<string, unknown>[] {
+  const roleGroups = array(response['resultsByTargetRole']).filter(isRecord);
+  return roleGroups.length > 0 ? roleGroups : [response];
+}
+
+function projectMatching(
+  source: Record<string, unknown>,
+  mode: 'QUERY_ONLY' | 'UNAVAILABLE'
+): Record<string, unknown> {
+  const response = structuredClone(source);
+  const groups = [response, ...array(response['resultsByTargetRole']).filter(isRecord)];
+  for (const group of groups) {
+    group['matchingStatus'] = mode === 'UNAVAILABLE' ? 'UNAVAILABLE' : 'COMPLETE';
+    for (const job of array(group['jobs']).filter(isRecord)) {
+      if (mode === 'UNAVAILABLE') {
+        delete job['matchAssessment'];
+        delete job['matchScore'];
+        continue;
+      }
+      job['matchScore'] = 0.74;
+      job['matchAssessment'] = {
+        score: 0.74,
+        provenance: 'DETERMINISTIC_QUERY_ONLY',
+        algorithmVersion: 'PROFILE_MATCH_V1',
+        targetRole: String(group['targetRole'] ?? 'Software Developer'),
+        rating: 'GOOD',
+        candidateProfileUsed: false,
+        components: [],
+        reasons: [{
+          code: 'PROFILE_EVIDENCE_NOT_SUPPLIED',
+          severity: 'INFO',
+          status: 'UNVERIFIED',
+          explanation: 'This fixture projection is query-title relevance only.',
+        }],
+        hardGateReasons: [],
+      };
+    }
+  }
+  return response;
 }

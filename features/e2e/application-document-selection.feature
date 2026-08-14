@@ -73,6 +73,14 @@ Feature: Uploaded and generated documents remain explicit application choices
     And the application document credit and content boundary is correct
     And application document reporting remains content-free
 
+  @state:DEMO_READY @critical-smoke
+  Scenario: Generated documents remain exact through user-controlled application progression
+    When the user starts the Generate application document journey
+    And the user chooses Generate for the CV and Generate for the cover letter
+    Then the selected application generation completes
+    And the saved application contains the exact selected document references
+    And the generated application survives refresh and explicit lifecycle progression
+
   @state:DEMO_READY
   Scenario: Mix a generated CV with an uploaded cover letter
     When the user starts the Generate application document journey

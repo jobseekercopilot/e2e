@@ -1,6 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { BasePage } from './base.page';
 import type { DemoUser } from '../support/world';
+import type { ProfessionalContactFixture } from '../support/beta-trust-fixtures';
 
 export class JobSeekerProfilePage extends BasePage {
   constructor(page: Page) {
@@ -48,6 +49,38 @@ export class JobSeekerProfilePage extends BasePage {
     await expect(
       profile.getByRole('heading', { name: 'Availability', exact: true }).locator('..')
     ).toContainText("14 days' notice");
+  }
+
+  async saveProfessionalContact(contact: ProfessionalContactFixture): Promise<void> {
+    const profile = this.page.locator('#left-sidebar');
+    const section = profile.getByTestId('profile-professional-contact');
+    await section.getByRole('button', {name: 'Edit professional contact', exact: true}).click();
+    await section.getByLabel('Professional phone number', {exact: true}).fill(contact.phone);
+
+    const removeLinks = section.locator('.contact-link-remove');
+    while (await removeLinks.count() > 0) await removeLinks.first().click();
+    for (let index = 0; index < contact.links.length; index += 1) {
+      await section.getByRole('button', {name: 'Add professional link', exact: true}).click();
+      await section.getByLabel(`Link ${index + 1} label`, {exact: true})
+        .fill(contact.links[index].label);
+      await section.getByLabel(`Link ${index + 1} HTTPS address`, {exact: true})
+        .fill(contact.links[index].url);
+    }
+
+    const saved = this.page.waitForResponse(response =>
+      response.request().method() === 'PATCH'
+      && new URL(response.url()).pathname === '/api/auth/profile/professional-contact');
+    await profile.getByRole('button', {name: 'Save this section', exact: true}).click();
+    const response = await saved;
+    expect(response.ok(), `professional-contact update failed with HTTP ${response.status()}`)
+      .toBe(true);
+    expect(response.request().postDataJSON()).toEqual(contact);
+    expect(response.request().headers()['if-match']).toMatch(/^"?\d+"?$/);
+    await expect(section).toContainText(contact.phone);
+    for (const link of contact.links) {
+      await expect(section.getByRole('link', {name: link.url, exact: true}))
+        .toHaveAttribute('href', link.url);
+    }
   }
 
   private async saveProfileSection(profile: Locator): Promise<void> {

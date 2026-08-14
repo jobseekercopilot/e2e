@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { BasePage } from './base.page';
+import type { PreparedApplicationExpectation } from './ApplicationDocumentJourneyPage';
 
 export class ApplicationTrackerPage extends BasePage {
   private lastChangedApplication?: {
@@ -216,7 +217,7 @@ export class ApplicationTrackerPage extends BasePage {
     await expect(card).toBeVisible({timeout: 30_000});
     await expect(card.locator(`.status-${status}`)).toBeVisible();
     const documents = card.getByTestId('application-documents');
-    if (!(await documents.getAttribute('open'))) {
+    if ((await documents.getAttribute('open')) === null) {
       await this.clickFramed(documents.locator('summary'));
     }
     if (status === 'documents-generated') {
@@ -230,6 +231,105 @@ export class ApplicationTrackerPage extends BasePage {
       await expect(documents.getByText('Cover letter used · Version 1', {exact: true}))
         .toBeVisible({timeout: 30_000});
     }
+  }
+
+  async provePreparedApplicationLifecycle(
+    expected: PreparedApplicationExpectation
+  ): Promise<void> {
+    await this.open();
+    await this.assertSpecificApplicationState(expected, 'DOCUMENTS_GENERATED');
+    await this.assertPreparedSelections(expected);
+
+    await this.refreshApplications();
+    await this.assertSpecificApplicationState(expected, 'DOCUMENTS_GENERATED');
+    await this.assertPreparedSelections(expected);
+
+    const progression = [
+      { action: 'Mark as Applied', statusClass: 'applied', status: 'APPLIED' },
+      { action: 'Mark Interview', statusClass: 'interview', status: 'INTERVIEW' },
+      { action: 'Mark Offer', statusClass: 'offer', status: 'OFFER' },
+      { action: 'Mark Accepted', statusClass: 'accepted', status: 'ACCEPTED' }
+    ] as const;
+    for (const transition of progression) {
+      await this.updateSpecificApplicationStatus(
+        expected.title,
+        expected.company,
+        transition.action,
+        transition.statusClass
+      );
+      await this.open();
+      await this.assertSpecificApplicationState(expected, transition.status);
+    }
+
+    const accepted = this.applicationCardFor(expected.title, expected.company);
+    const documents = accepted.getByTestId('application-documents');
+    if ((await documents.getAttribute('open')) === null) {
+      await documents.locator('summary').click();
+    }
+    await expect(documents.getByText('CV used · Version 1', { exact: true }))
+      .toBeVisible({ timeout: 30_000 });
+    await expect(documents.getByText('Cover letter used · Version 1', { exact: true }))
+      .toBeVisible({ timeout: 30_000 });
+  }
+
+  private async refreshApplications(): Promise<void> {
+    const refresh = this.byTestId('applications-workspace')
+      .getByRole('button', { name: 'Refresh', exact: true });
+    await expect(refresh).toBeVisible();
+    const response = this.page.waitForResponse(candidate =>
+      candidate.request().method() === 'GET'
+      && new URL(candidate.url()).pathname === '/api/jobs/applications',
+      { timeout: 20_000 }
+    );
+    await refresh.click();
+    expect((await response).ok(), 'Refreshing applications must succeed.').toBe(true);
+  }
+
+  private async assertPreparedSelections(
+    expected: PreparedApplicationExpectation
+  ): Promise<void> {
+    const card = this.applicationCardFor(expected.title, expected.company);
+    const documents = card.getByTestId('application-documents');
+    if ((await documents.getAttribute('open')) === null) {
+      await documents.locator('summary').click();
+    }
+    const selections = documents.locator('select');
+    await expect(selections).toHaveCount(2, { timeout: 30_000 });
+    await expect(selections.nth(0)).toHaveValue(expected.cvDocumentId);
+    await expect(selections.nth(1)).toHaveValue(expected.coverLetterDocumentId);
+  }
+
+  private async assertSpecificApplicationState(
+    expected: PreparedApplicationExpectation,
+    status: 'DOCUMENTS_GENERATED' | 'APPLIED' | 'INTERVIEW' | 'OFFER' | 'ACCEPTED'
+  ): Promise<void> {
+    const statusClass = status.toLowerCase().replaceAll('_', '-');
+    const card = this.applicationCardFor(expected.title, expected.company);
+    await expect(card).toBeVisible({ timeout: 30_000 });
+    await expect(card.locator(`.status-${statusClass}`)).toBeVisible();
+    const result = await this.page.evaluate(async applicationId => {
+      const response = await fetch('/api/jobs/applications');
+      if (!response.ok) {
+        throw new Error(`Applications request failed with HTTP ${response.status}.`);
+      }
+      const body = await response.json() as unknown;
+      const records = Array.isArray(body)
+        ? body
+        : body && typeof body === 'object' && Array.isArray((body as { applications?: unknown[] }).applications)
+          ? (body as { applications: unknown[] }).applications
+          : body && typeof body === 'object' && Array.isArray((body as { content?: unknown[] }).content)
+            ? (body as { content: unknown[] }).content
+            : [];
+      return records.find(value => value && typeof value === 'object'
+        && (value as { id?: string }).id === applicationId) as {
+          status?: string;
+          cvDocumentReference?: { documentId?: string };
+          coverLetterDocumentReference?: { documentId?: string };
+        } | undefined;
+    }, expected.id);
+    expect(result?.status).toBe(status);
+    expect(result?.cvDocumentReference?.documentId).toBe(expected.cvDocumentId);
+    expect(result?.coverLetterDocumentReference?.documentId).toBe(expected.coverLetterDocumentId);
   }
 
   async changeFirstApplicationStatus(status: 'Applied' | 'Interview' | 'Offer'): Promise<void> {

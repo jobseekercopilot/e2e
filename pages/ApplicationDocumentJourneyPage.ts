@@ -1,9 +1,11 @@
-import { expect, type Browser, type BrowserContext, type Locator, type Page, type Response } from '@playwright/test';
+import { expect, type Browser, type BrowserContext, type Locator, type Page, type Response, type Route } from '@playwright/test';
 import type { NamedStateIdentity } from './StabilisationPage';
 import { PUBLIC_NAMED_STATE_PASSWORD } from '../support/demo-data';
 import { applicationDocumentFixtures, type ApplicationDocumentFixture } from '../support/application-document-fixtures';
 import { e2eConfig } from '../support/config';
 import { demoCursor } from '../support/demo-cursor';
+import type { ProfessionalContactFixture } from '../support/beta-trust-fixtures';
+import { docxParagraphs } from '../support/docx-text';
 
 export type DocumentChoice = 'GENERATE' | 'UPLOAD' | 'OMIT';
 export type DocumentPurpose = 'CV' | 'COVER_LETTER';
@@ -39,6 +41,14 @@ export interface JourneyStartOptions {
   reuseCurrentSearchView?: boolean;
 }
 
+export interface PreparedApplicationExpectation {
+  id: string;
+  title: string;
+  company: string;
+  cvDocumentId: string;
+  coverLetterDocumentId: string;
+}
+
 interface UploadOperation {
   operationId?: string;
   applicationId?: string;
@@ -68,6 +78,11 @@ export class ApplicationDocumentJourneyPage {
   private readonly selectedUploadFixtures = new Map<DocumentPurpose, ApplicationDocumentFixture>();
   private readonly pendingResponseReads: Promise<void>[] = [];
   private generationStarts = 0;
+  private readonly generationStartRequests: Array<{
+    pathname: string;
+    idempotencyKey?: string;
+    body: unknown;
+  }> = [];
 
   constructor(private readonly page: Page, private readonly baseUrl: string) {
     page.on('response', response => {
@@ -85,6 +100,11 @@ export class ApplicationDocumentJourneyPage {
       if (request.method() === 'POST'
         && /^\/api\/v1\/document-generation\/saved-jobs\/[^/]+\/operations$/.test(pathname)) {
         this.generationStarts += 1;
+        this.generationStartRequests.push({
+          pathname,
+          idempotencyKey: request.headers()['idempotency-key'],
+          body: request.postDataJSON(),
+        });
       }
     });
   }
@@ -436,6 +456,148 @@ export class ApplicationDocumentJourneyPage {
     expect(this.generationStarts).toBe(startsBefore + 1);
   }
 
+  async completeGenerationWithTransparentRecovery(
+    expectedPurposes: DocumentPurpose[]
+  ): Promise<void> {
+    const operationIds = new Set<string>();
+    const pattern = '**/api/v1/document-generation/operations/**';
+    const handler = async (route: Route): Promise<void> => {
+      const upstream = await route.fetch();
+      const contentType = upstream.headers()['content-type'] ?? '';
+      if (!upstream.ok() || !contentType.includes('application/json')) {
+        await route.fulfill({response: upstream});
+        return;
+      }
+      const body = await upstream.json() as Record<string, unknown>;
+      if (typeof body['operationId'] === 'string') operationIds.add(body['operationId']);
+      if (body['state'] !== 'COMPLETED') {
+        await route.fulfill({response: upstream, json: body});
+        return;
+      }
+      // This deliberately tests the browser-facing recovery-summary contract
+      // seam, not failure injection in CV generation. Keep every real
+      // fixture-stack field and project only safe recovery metadata after the
+      // authoritative upstream operation has actually completed.
+      expect(body['applicationId']).toMatch(UUID);
+      expect(body['cvDocumentId']).toMatch(UUID);
+      expect(body['coverLetterDocumentId']).toMatch(UUID);
+      expect(body['downloads']).toBeTruthy();
+      const current = body['outputResults'] && typeof body['outputResults'] === 'object'
+        ? body['outputResults'] as Record<string, unknown>
+        : {};
+      body['outputResults'] = {
+        ...current,
+        CV: {
+          ...(current['CV'] && typeof current['CV'] === 'object' ? current['CV'] : {}),
+          recoverySummary: {
+            generationSource: 'DETERMINISTIC_FALLBACK',
+            structuralRepairStatus: 'NOT_REQUIRED',
+            duplicateItemsRemoved: 0,
+            providerAttemptCount: 1,
+            automaticRetryCount: 0,
+            retried: false,
+            retainedResponseReplayed: false,
+            deterministicFallbackUsed: true,
+            fallbackReason: 'MODEL_OUTPUT_REJECTED',
+            reconciliationStatus: 'NOT_REQUIRED',
+            reconciliationAttempts: 0,
+            billingStatus: 'RELEASED_NO_CHARGE',
+            charged: false,
+            released: true,
+          },
+        },
+        COVER_LETTER: {
+          ...(current['COVER_LETTER'] && typeof current['COVER_LETTER'] === 'object'
+            ? current['COVER_LETTER'] : {}),
+          recoverySummary: {
+            generationSource: 'LLM',
+            structuralRepairStatus: 'NOT_REQUIRED',
+            duplicateItemsRemoved: 0,
+            providerAttemptCount: 1,
+            automaticRetryCount: 0,
+            retried: false,
+            retainedResponseReplayed: true,
+            deterministicFallbackUsed: false,
+            reconciliationStatus: 'RECOVERED',
+            reconciliationAttempts: 1,
+            reconciliationSource: 'RETAINED_RESPONSE',
+            billingStatus: 'COMMITTED',
+            charged: true,
+            released: false,
+          },
+        },
+      };
+      await route.fulfill({response: upstream, json: body});
+    };
+
+    await this.page.route(pattern, handler);
+    try {
+      await this.completeGeneration(expectedPurposes);
+      const message = this.selectedJobCard().locator('.generation-message');
+      await expect(message).toContainText(
+        'CV recovered with an evidence-based fallback — no AI Credit charged.'
+      );
+      await expect(message).toContainText(
+        'Cover letter recovered safely without a duplicate request.'
+      );
+      const starts = this.generationStartRequests;
+      expect(starts, 'Recovery UI must still be driven by one generation command.').toHaveLength(1);
+      expect(new Set(starts.map(start => start.pathname)).size).toBe(1);
+      expect(new Set(starts.map(start => start.idempotencyKey).filter(Boolean)).size).toBe(1);
+      expect(operationIds.size, 'Polling and approval must retain one operation identity.').toBe(1);
+    } finally {
+      await this.page.unroute(pattern, handler);
+    }
+  }
+
+  async assertProfessionalContactBoundary(contact: ProfessionalContactFixture): Promise<void> {
+    expect(this.generationStartRequests).toHaveLength(1);
+    const request = this.generationStartRequests[0];
+    expect(request.idempotencyKey).toMatch(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/);
+    expect(request.body).toEqual(expect.objectContaining({
+      outputs: ['CV'],
+      documents: expect.any(Array),
+    }));
+    const serialized = JSON.stringify(request.body);
+    expect(serialized).not.toContain('professionalContact');
+    expect(serialized).not.toContain(contact.phone);
+    for (const link of contact.links) expect(serialized).not.toContain(link.url);
+  }
+
+  async assertApprovedCvContainsProfessionalContact(
+    contact: ProfessionalContactFixture
+  ): Promise<void> {
+    const application = await this.currentApplication();
+    const cvDocumentId = application.cvDocumentReference?.documentId;
+    if (!cvDocumentId || !UUID.test(cvDocumentId)) {
+      throw new Error('The generated application has no approved CV reference.');
+    }
+    const metadata = await this.page.request.get(new URL(
+      `/api/v1/document-generation/documents/${cvDocumentId}/files/latest`,
+      this.baseUrl
+    ).toString());
+    expect(metadata.status()).toBe(200);
+    const files = await metadata.json() as {docx?: {downloadUrl?: string}};
+    if (!files.docx?.downloadUrl) throw new Error('Approved CV has no DOCX download.');
+
+    const download = await this.page.request.get(new URL(
+      files.docx.downloadUrl,
+      this.baseUrl
+    ).toString());
+    expect(download.status()).toBe(200);
+    expect(download.headers()['cache-control']).toContain('private');
+    expect(download.headers()['cache-control']).toContain('no-store');
+    expect(download.headers()['content-disposition']).toMatch(/^attachment;/i);
+    expect(download.headers()['content-type']).toContain(
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    );
+    const header = docxParagraphs(await download.body()).slice(0, 5).join(' | ');
+    expect(header).toContain(contact.phone);
+    for (const link of contact.links) {
+      expect(header).toContain(`${link.label}: ${link.url}`);
+    }
+  }
+
   private async demoClick(locator: Locator): Promise<void> {
     if (!e2eConfig.demoRecording) {
       await locator.click();
@@ -531,6 +693,26 @@ export class ApplicationDocumentJourneyPage {
         expect(reference?.originalContentSha256).toBe(expectedFixture.sha256);
       }
     }
+  }
+
+  async preparedApplicationExpectation(): Promise<PreparedApplicationExpectation> {
+    const record = await this.currentApplication();
+    const cvDocumentId = record.cvDocumentReference?.documentId;
+    const coverLetterDocumentId = record.coverLetterDocumentReference?.documentId;
+    if (!record.jobTitle?.trim() || !record.companyName?.trim()) {
+      throw new Error('The generated application did not retain its job identity.');
+    }
+    if (!cvDocumentId || !UUID.test(cvDocumentId)
+      || !coverLetterDocumentId || !UUID.test(coverLetterDocumentId)) {
+      throw new Error('The generated application did not retain both exact document references.');
+    }
+    return {
+      id: record.id,
+      title: record.jobTitle.trim(),
+      company: record.companyName.trim(),
+      cvDocumentId,
+      coverLetterDocumentId
+    };
   }
 
   async assertUploadCreditAndBoundary(expectedUploads: number): Promise<void> {
