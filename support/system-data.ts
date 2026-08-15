@@ -9,6 +9,7 @@ export const NAMED_STATES = [
   'CROSS_USER_SECURITY',
   'REAL_WORLD_PERSONAS',
   'PROVIDER_FAILURE',
+  'PAYMENT_ACCEPTANCE',
   'DEMO_READY'
 ] as const;
 
@@ -56,6 +57,15 @@ export interface SystemDataLifecycleConfig {
   key: string;
   runId: string;
   timeoutMs: number;
+}
+
+export interface FixturePaymentEventResponse {
+  providerEventId: string;
+  orderId: string;
+  providerSessionId: string;
+  event: 'COMPLETED' | 'EXPIRED';
+  checkoutStatus: 'COMPLETE' | 'EXPIRED';
+  paymentStatus: 'PAID' | 'UNPAID';
 }
 
 interface LifecycleEnvironment {
@@ -136,6 +146,9 @@ export function requireLifecycleConfig(
   if (!['demo', 'e2e'].includes(environment.profile) && state === 'DEMO_READY') {
     throw new Error('DEMO_READY is restricted to the demo and e2e profiles.');
   }
+  if (environment.profile !== 'e2e' && state === 'PAYMENT_ACCEPTANCE') {
+    throw new Error('PAYMENT_ACCEPTANCE is restricted to the e2e profile.');
+  }
   return {
     baseUrl: validateBaseUrl(environment.systemDataUrl),
     key: environment.systemDataKey,
@@ -177,6 +190,21 @@ export class SystemDataClient {
 
   reset(state: NamedState): Promise<EnvironmentOperationResponse> {
     return this.operation('reset', '/internal/environments/reset', state);
+  }
+
+  paymentEvent(
+    providerSessionId: string,
+    event: 'COMPLETED' | 'EXPIRED'
+  ): Promise<FixturePaymentEventResponse> {
+    if (!/^cs_fixture_[a-f0-9]{32}$/.test(providerSessionId)) {
+      throw new Error('Fixture payment session ID is invalid.');
+    }
+    return this.request(
+      'payment event',
+      `/internal/environments/payment-fixtures/checkout-sessions/${providerSessionId}/events`,
+      {method: 'POST', body: JSON.stringify({event})},
+      value => isFixturePaymentEvent(value, providerSessionId, event)
+    );
   }
 
   private operation(operation: string, path: string, state: NamedState): Promise<EnvironmentOperationResponse> {
@@ -304,4 +332,20 @@ function isSuccessfulOperation(value: unknown, state: NamedState): value is Envi
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every(item => typeof item === 'string');
+}
+
+function isFixturePaymentEvent(
+  value: unknown,
+  providerSessionId: string,
+  event: 'COMPLETED' | 'EXPIRED'
+): value is FixturePaymentEventResponse {
+  return isRecord(value)
+    && typeof value.providerEventId === 'string'
+    && /^[A-Za-z0-9_:-]{20,255}$/.test(value.providerEventId)
+    && typeof value.orderId === 'string'
+    && /^[0-9a-f-]{36}$/.test(value.orderId)
+    && value.providerSessionId === providerSessionId
+    && value.event === event
+    && value.checkoutStatus === (event === 'COMPLETED' ? 'COMPLETE' : 'EXPIRED')
+    && value.paymentStatus === (event === 'COMPLETED' ? 'PAID' : 'UNPAID');
 }

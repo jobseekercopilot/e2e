@@ -431,7 +431,7 @@ nav-dashboard
 nav-find-jobs
 nav-applications
 nav-documents
-nav-ai-credit
+nav-payment
 job-search-keywords-input
 job-search-location-input
 job-result-card
@@ -445,19 +445,19 @@ application-card
 application-status-select
 dashboard-page
 dashboard-activity-timeline
-dashboard-ai-credit-widget
-ai-credit-page
-ai-credit-balance
-spending-log
+dashboard-document-credit-widget
+payment-page
+document-credit-balance
+document-credit-history
 ```
 
 ## Known TODOs
 
 - Add a demo reset endpoint or seeded demo user so promo clips can use `alex.taylor92@example.com` deterministically.
-- Add deterministic document generation for `DEMO_MODE=true` so application document clips do not spend real AI credits.
-- Add stable navigation routes or `data-testid`s for Documents, Applications and AI Credit.
-- Never perform a real Stripe payment in promo automation; the AI credit journey stops before checkout.
-- Add richer seeded demo data for documents, applications, spending log and activity timeline.
+- Add deterministic document generation for `DEMO_MODE=true` so application document clips do not use a document credit.
+- Add stable navigation routes or `data-testid`s for Documents, Applications and document credits.
+- Never perform a real Stripe payment in promo automation. Payment acceptance uses the isolated fixture-only signed-webhook path and is not recorded as a promo clip.
+- Add richer seeded demo data for documents, applications, document-credit history and activity timeline.
 
 Beta-blocking audit work is tracked in private E2E-02 through E2E-05. During
 E2E-06, the live advisory result for the old Cucumber 11 lock had increased to

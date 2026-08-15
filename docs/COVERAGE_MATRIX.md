@@ -1,6 +1,6 @@
 # User-capability E2E coverage matrix
 
-Status values: **Covered**, **Partial**, **Explicit live**, or **Gap**. `Fixture` means deterministic full-stack doubles; it does not claim the real external provider. Results are current to 14 August 2026.
+Status values: **Covered**, **Partial**, **Explicit live**, or **Gap**. `Fixture` means deterministic full-stack doubles; it does not claim the real external provider. Results are current to 15 August 2026.
 
 | User capability | Critical smoke | Core regression | Extended / negative | Promo | Capacity | Boundary | Status |
 |---|---|---|---|---|---|---|---|
@@ -25,7 +25,14 @@ Status values: **Covered**, **Partial**, **Explicit live**, or **Gap**. `Fixture
 | Specialist NHS/apprenticeship filtering | Apprenticeship start; unrelated NHS vacancy filtered | Apprenticeship positive and NHS negative assertions | Explicit bounded live path exists | DISCOVER | DISCOVER | Fixture in regression | Partial |
 | Provider outage and explicit failure contract | Lower-layer + live evidence | Deterministic stack-level `502` scenario | Provider-failure profile and component degradation tests | No | No | Fixture failure mode | Covered |
 | Reporting/activity | No | Empty/small/rich exact reconciliation | Content-free, private/no-store reporting | REPORT | No | Fixture reporting | Covered |
-| Payment/pricing/wallet | Authenticated same-origin contract | No unexplained 404 traffic | 401, CSRF, identity and downstream response boundaries | REPORT | No | Deterministic service | Covered |
+| Payment/pricing/wallet | Exact server-owned catalogue, free allowance and acknowledgements | Signed completion/replay, expiry/no-charge and cancel-to-late-completion reconciliation | Return URL cannot fulfil; visible history and exact API ledger agree | No | No | Test-only Stripe session signs the normal verified webhook; durable Payment fulfilment; live Stripe disabled | Covered |
+
+The current E2E-profile definition dry run resolves **31 scenarios / 236
+steps**. The public-beta payment acceptance slice accounts for **4 scenarios /
+33 steps** and passed **4/4 scenarios / 33/33 steps** against the isolated
+fixture stack on 15 August 2026. The tagged run exercised the signed Stripe
+webhook path through durable Payment reconciliation; no live provider was
+enabled or called.
 
 ## Persona coverage
 
