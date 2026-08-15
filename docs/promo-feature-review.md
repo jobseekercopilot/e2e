@@ -4,6 +4,12 @@ Date: 2026-07-11
 
 Scope: first automated promotional recording pass for the existing Job Seeker Copilot Angular client and Playwright/Cucumber framework.
 
+Update, 15 August 2026: the obsolete `10-ai-credit` journey was retired when
+the product moved to server-owned document credits. Public-beta payment
+acceptance now lives in a non-recording fixture-only feature; the historical
+observations below remain evidence of the July review, not current product
+terminology or checkout coverage.
+
 ## Client inspection summary
 
 - Main navigation: authenticated dashboard shell with top header, profile dropdown, AI Credit widget, and workspace tabs for Search Results, My Applications, and Documents.
@@ -24,7 +30,7 @@ Scope: first automated promotional recording pass for the existing Job Seeker Co
 | 07-document-management | Document library, versions, preview and downloads | Saved session | Documents workspace with list or empty state | Opens Documents, expands first document, shows details, downloads and previews saved PDF when available | Yes | Strong with seeded documents; weak if empty | Add `data-testid="document-version-history"` and preview controls to expanded details | 18-30s | Remain |
 | 08-application-tracking | Application tracker and status progression | Saved session | Applications workspace and status/timeline controls | Opens Applications and attempts status change | Yes, but status action selector is loose | Strong with seeded applications; weak if empty | Add `data-testid="application-status-select"` or stable status menu items | 12-24s | Remain |
 | 09-dashboard-activity | Reporting activity timeline | Saved session | Dashboard reporting panel/activity area | Scrolls to Recent activity or dashboard state | Yes | Strong only after generated/tracked activity exists | Add `data-testid="dashboard-activity-timeline"` to reporting panel | 10-18s | Remain |
-| 10-ai-credit | AI Credit balance and usage | Saved session | AI Credit widget/spending log area | Scrolls to AI Credit, confirms no checkout starts | Yes | Summary is good; spending log depends on fixture transactions | Add `data-testid="ai-credit-balance"` and `data-testid="spending-log"` | 8-16s | Remain |
+| 10-ai-credit (retired) | Historical AI Credit balance and usage | Saved session | Historical AI Credit widget/spending log area | Scrolled to AI Credit and confirmed no checkout started | Historical only | Historical only | Superseded by accessible document-credit payment/history assertions | 8-16s | Retired; do not record or restore |
 | 99-marketing-trailer | End-to-end story from onboarding to job/application activity | Anonymous visitor | Final dashboard/activity state | Registration, search, detail, documents, applications, activity | Yes if all supporting journeys are healthy | Useful as rough trailer, not final advert | Same selectors as component clips | 75-120s | Remain |
 
 ## Recording command

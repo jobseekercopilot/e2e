@@ -1,6 +1,6 @@
 import { setWorldConstructor, World, type IWorldOptions } from '@cucumber/cucumber';
 import type { Browser, BrowserContext, Page } from '@playwright/test';
-import { AiCreditPage } from '../pages/AiCreditPage';
+import { DocumentCreditPaymentPage } from '../pages/DocumentCreditPaymentPage';
 import { ApplicationDocumentJourneyPage, type DocumentChoice, type DocumentPurpose } from '../pages/ApplicationDocumentJourneyPage';
 import { ApplicationTrackerPage } from '../pages/ApplicationTrackerPage';
 import { DashboardPage } from '../pages/DashboardPage';
@@ -85,7 +85,7 @@ export class JobSeekerWorld extends World {
   documentGenerationPage?: DocumentGenerationPage;
   documentsPage?: DocumentsPage;
   applicationTrackerPage?: ApplicationTrackerPage;
-  aiCreditPage?: AiCreditPage;
+  documentCreditPaymentPage?: DocumentCreditPaymentPage;
   passwordRecoveryPage?: PasswordRecoveryPage;
   productShowcasePage?: ProductShowcasePage;
   reportingReconciliationPage?: ReportingReconciliationPage;
@@ -109,7 +109,7 @@ export class JobSeekerWorld extends World {
     this.documentGenerationPage = new DocumentGenerationPage(page);
     this.documentsPage = new DocumentsPage(page);
     this.applicationTrackerPage = new ApplicationTrackerPage(page);
-    this.aiCreditPage = new AiCreditPage(page);
+    this.documentCreditPaymentPage = new DocumentCreditPaymentPage(page);
     this.applicationDocumentJourneyPage = new ApplicationDocumentJourneyPage(page, this.config.baseUrl);
     this.passwordRecoveryPage = new PasswordRecoveryPage(page, this.config.baseUrl);
     this.productShowcasePage = new ProductShowcasePage(page);

@@ -26,6 +26,7 @@ DUPLICATE_REGISTRATION
 CROSS_USER_SECURITY
 REAL_WORLD_PERSONAS
 PROVIDER_FAILURE
+PAYMENT_ACCEPTANCE
 DEMO_READY
 ```
 
@@ -35,6 +36,12 @@ states are not accepted for demo lifecycle automation. `REAL_WORLD_PERSONAS`
 is accepted by the full E2E profile and prepares seven fictional current-profile
 contracts; it does not grant live-provider or paid-AI access. The `@framework` smoke
 is deliberately stateless and does not contact system-data.
+
+`PAYMENT_ACCEPTANCE` is restricted to the full E2E profile. It prepares a
+free document-credit wallet and an authenticated fixture identity, resets both
+the Payment and Stripe fixture aggregates, and verifies their exact owned
+state. Its payment-event control is a caller-key-protected System Data proxy;
+the browser cannot grant credits directly.
 
 ## Runtime contract
 
@@ -47,6 +54,20 @@ GET  /internal/environments/verify?scenario=<NAME>
 browser journey
 POST /internal/environments/reset         {"scenario":"<NAME>"}
 ```
+
+The payment acceptance journey may also ask System Data to emit a bounded
+terminal event for a fixture Checkout session:
+
+```text
+POST /internal/environments/payment-fixtures/checkout-sessions/{sessionId}/events
+     {"event":"COMPLETED" | "EXPIRED"}
+```
+
+System Data forwards this only to the test-profile Stripe fixture control. The
+Stripe Gateway signs the stable fixture event and sends it through its normal
+webhook verification and Payment provider-event boundary. Replaying the same
+terminal event preserves its provider event ID, so durable fulfilment and
+expiry idempotency are exercised without browser-direct settlement.
 
 The client also exposes `GET /internal/environments/states` for discovery. It
 requires the documented response shape and exact scenario, and accepts only a
@@ -81,11 +102,14 @@ traces or command output. Client errors contain only the operation and safe HTTP
 status; response bodies, URLs and keys are not echoed. CI contract tests use a
 local deterministic HTTP double and never call system-data or a live provider.
 
-## Minimum-stack handoff
+## Stack handoff
 
-E2E-03 must supply system-data on the approved Compose network, inject the
-runtime caller key without committing it, set the URL to
-`http://system-data-service:8103`, and run a tagged smoke that proves actual
-`prepare -> verify -> browser journey -> reset`. That issue owns service builds,
-health/readiness, database persistence and teardown; this client remains the
-only E2E state-preparation integration.
+The isolated E2E Compose overlay supplies System Data on the approved network,
+injects the runtime caller key without committing it, and sets the URL to
+`http://system-data-service:8103`. The Stripe payment fixture control requires
+exactly the single active Spring profile `test`, explicit FIXTURE mode, an
+explicit enable flag, and strong runtime control/signing configuration. Runtime
+validation rejects those controls outside the E2E overlay. Tagged stack runs
+prove `prepare -> verify -> browser journey -> reset`; service builds,
+health/readiness, database persistence and teardown remain Infrastructure
+responsibilities.

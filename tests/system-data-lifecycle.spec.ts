@@ -115,6 +115,41 @@ test('client matches the system-data list, describe, prepare, verify and reset c
   }
 });
 
+test('fixture payment events require an exact session and terminal response contract', async () => {
+  const sessionId = 'cs_fixture_0123456789abcdef0123456789abcdef';
+  const requests: Array<{method?: string; url?: string; body: string}> = [];
+  const server = await localServer((request, response) => {
+    let body = '';
+    request.on('data', chunk => { body += chunk.toString(); });
+    request.on('end', () => {
+      requests.push({method: request.method, url: request.url, body});
+      response.setHeader('content-type', 'application/json');
+      response.end(JSON.stringify({
+        providerEventId: 'evt_fixture_completed_0123456789abcdef0123456789abcdef',
+        orderId: '01234567-89ab-cdef-0123-456789abcdef',
+        providerSessionId: sessionId,
+        event: 'COMPLETED',
+        checkoutStatus: 'COMPLETE',
+        paymentStatus: 'PAID'
+      }));
+    });
+  });
+
+  try {
+    await expect(client(server.baseUrl).paymentEvent(sessionId, 'COMPLETED'))
+      .resolves.toMatchObject({providerSessionId: sessionId, paymentStatus: 'PAID'});
+    expect(requests).toEqual([{
+      method: 'POST',
+      url: `/internal/environments/payment-fixtures/checkout-sessions/${sessionId}/events`,
+      body: JSON.stringify({event: 'COMPLETED'})
+    }]);
+    expect(() => client(server.baseUrl).paymentEvent('cs_live_not_allowed', 'COMPLETED'))
+      .toThrow('session ID is invalid');
+  } finally {
+    await server.close();
+  }
+});
+
 test('state tags and profile selection fail closed', () => {
   expect(parseNamedStateTag(['@e2e', '@state:profile_location'])).toBe('PROFILE_LOCATION');
   expect(parseNamedStateTag(['@e2e'])).toBeUndefined();
@@ -138,6 +173,10 @@ test('state tags and profile selection fail closed', () => {
     .toBe('http://localhost:9103');
   expect(() => requireLifecycleConfig({ ...base, profile: 'security' }, 'DEMO_READY', 'run'))
     .toThrow('restricted to the demo and e2e profiles');
+  expect(requireLifecycleConfig({ ...base, profile: 'e2e' }, 'PAYMENT_ACCEPTANCE', 'run').baseUrl)
+    .toBe('http://localhost:9103');
+  expect(() => requireLifecycleConfig({ ...base, profile: 'smoke' }, 'PAYMENT_ACCEPTANCE', 'run'))
+    .toThrow('restricted to the e2e profile');
 });
 
 test('lifecycle configuration rejects missing secrets and unsafe targets without echoing them', () => {
