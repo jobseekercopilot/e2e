@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "failOn": [
+    "critical",
+    "high"
+  ],
+  "acceptedFindings": [],
+  "reviewedResidualRisk": {
+    "moderate": [],
+    "reviewedAt": "2026-07-26",
+    "notes": "The Cucumber 13.2.0 lockfile has no known Moderate findings. Any future Moderate package must be explicitly reviewed here."
+  }
+}
