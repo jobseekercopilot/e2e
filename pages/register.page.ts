@@ -66,6 +66,11 @@ export class RegisterPage extends BasePage {
     await this.humanFillFramed(this.page.getByLabel(/full name/i), user.fullName);
     await this.humanFillFramed(this.page.getByLabel(/email address/i), user.email);
     await this.humanFillFramed(this.page.getByLabel(/^password$/i), user.password);
+    const legalAcknowledgement = this.page.getByRole('checkbox', {
+      name: /aged 18 or over, accept the terms of use and acknowledge the privacy notice/i,
+    });
+    await expect(legalAcknowledgement).toBeVisible();
+    await legalAcknowledgement.check();
   }
 
   private async submitRegistration(): Promise<void> {
