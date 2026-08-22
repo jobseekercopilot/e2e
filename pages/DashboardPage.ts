@@ -42,10 +42,10 @@ export class DashboardPage extends BasePage {
   async waitForDashboardWidgets(): Promise<void> {
     await this.waitForDashboard();
 
-    // TODO frontend: add data-testid values for dashboard-ai-credit-widget,
+    // TODO frontend: add data-testid values for the dashboard allowance widget,
     // dashboard-application-stats and dashboard-document-stats.
     await expect(
-      this.page.getByText(/Document credits|Applications|Documents|Job Matches|Claimant Profile/i).first()
+      this.page.getByText(/Document generations|Applications|Documents|Job Matches|Claimant Profile/i).first()
     ).toBeVisible();
   }
 

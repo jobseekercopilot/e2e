@@ -9,7 +9,7 @@ export class DocumentGenerationPage extends BasePage {
   }
 
   async generateApplicationDocuments(): Promise<'pending' | 'clicked'> {
-    // TODO backend/frontend: provide deterministic DEMO_MODE generation that does not spend real AI credits.
+    // TODO backend/frontend: provide deterministic DEMO_MODE generation without paid provider calls.
     if (!process.env.ALLOW_AI_GENERATION || process.env.ALLOW_AI_GENERATION.toLowerCase() !== 'true') {
       return 'pending';
     }

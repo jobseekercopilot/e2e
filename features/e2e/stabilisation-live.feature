@@ -2,7 +2,7 @@
 Feature: Profile, evidence, real-provider search and document generation stabilisation
 
   The checkpoint uses the isolated DEMO_READY identity. Real job providers are
-  mandatory, and scenarios that can spend OpenAI credit are separately gated.
+  mandatory, and scenarios that can incur paid OpenAI usage are separately gated.
 
   @stabilisation-ui
   Scenario: The compact profile and in-card preparation journey remain usable

@@ -10,7 +10,7 @@ Feature: Uploaded and generated documents remain explicit application choices
     And the user chooses <cv> for the CV and <cover> for the cover letter
     Then the selected application uploads complete
     And the saved application contains the exact selected document references
-    And the application document credit and content boundary is correct
+    And the application document generation allowance and content boundary is correct
     And application document reporting remains content-free
 
     Examples:
@@ -26,7 +26,7 @@ Feature: Uploaded and generated documents remain explicit application choices
     And the user uploads a valid DOCX CV and skips the cover letter
     Then the selected application uploads complete
     And the saved application contains the exact selected document references
-    And the application document credit and content boundary is correct
+    And the application document generation allowance and content boundary is correct
     And the uploaded application document download is private and safe
 
   @state:CROSS_USER_SECURITY
@@ -35,7 +35,7 @@ Feature: Uploaded and generated documents remain explicit application choices
     And the user uploads the substantialMultiPagePdf CV fixture and skips the cover letter
     Then the selected application uploads complete
     And the saved application contains the exact selected document references
-    And the application document credit and content boundary is correct
+    And the application document generation allowance and content boundary is correct
     And the uploaded application document download is private and safe
 
   @state:CROSS_USER_SECURITY
@@ -70,7 +70,7 @@ Feature: Uploaded and generated documents remain explicit application choices
     And the user chooses Generate for the CV and Generate for the cover letter
     Then the selected application generation completes
     And the saved application contains the exact selected document references
-    And the application document credit and content boundary is correct
+    And the application document generation allowance and content boundary is correct
     And application document reporting remains content-free
 
   @state:DEMO_READY @critical-smoke
@@ -88,6 +88,6 @@ Feature: Uploaded and generated documents remain explicit application choices
     Then the selected application uploads complete
     And the selected application generation completes
     And the saved application contains the exact selected document references
-    And the application document credit and content boundary is correct
+    And the application document generation allowance and content boundary is correct
     And the uploaded application document download is private and safe
     And application document reporting remains content-free
