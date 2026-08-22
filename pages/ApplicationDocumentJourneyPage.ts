@@ -1,4 +1,7 @@
 import { expect, type Browser, type BrowserContext, type Locator, type Page, type Response, type Route } from '@playwright/test';
+import { createHash } from 'node:crypto';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import type { NamedStateIdentity } from './StabilisationPage';
 import { PUBLIC_NAMED_STATE_PASSWORD } from '../support/demo-data';
 import { applicationDocumentFixtures, type ApplicationDocumentFixture } from '../support/application-document-fixtures';
@@ -38,7 +41,17 @@ export interface PreferredJob {
 
 export interface JourneyStartOptions {
   confirmedGenerationEvidenceAlreadyVerified?: boolean;
+  generationEvidence?: ConfirmedGenerationEvidence;
+  preserveProfileLocation?: boolean;
   reuseCurrentSearchView?: boolean;
+}
+
+export interface ConfirmedGenerationEvidence {
+  description: string;
+  endDate: string;
+  role: string;
+  startDate: string;
+  title: string;
 }
 
 export interface PreparedApplicationExpectation {
@@ -47,6 +60,19 @@ export interface PreparedApplicationExpectation {
   company: string;
   cvDocumentId: string;
   coverLetterDocumentId: string;
+}
+
+export interface GeneratedReviewBundle {
+  application: PreparedApplicationExpectation;
+  groundingReport: string;
+  artifacts: Array<{
+    bytes: number;
+    documentId: string;
+    file: string;
+    format: 'DOCX' | 'PDF';
+    purpose: DocumentPurpose;
+    sha256: string;
+  }>;
 }
 
 interface UploadOperation {
@@ -60,6 +86,13 @@ interface UploadOperation {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const GENERATION_EVIDENCE_TITLE = 'Synthetic application document project';
+const DEFAULT_GENERATION_EVIDENCE: ConfirmedGenerationEvidence = {
+  description: 'Built a fully synthetic Java and Angular workflow with secure REST APIs, automated tests, accessible interfaces and deterministic document-generation integration.',
+  endDate: '2026-07-01',
+  role: 'Software developer',
+  startDate: '2025-01-01',
+  title: GENERATION_EVIDENCE_TITLE,
+};
 const FORBIDDEN_CONTENT_KEYS = new Set([
   'content', 'extractedText', 'originalFileName', 'storageKey', 'bucket',
   'objectKey', 'documentBytes', 'downloadUrl', 'accessToken'
@@ -77,6 +110,7 @@ export class ApplicationDocumentJourneyPage {
   private readonly uploadPayloads: UploadOperation[] = [];
   private readonly selectedUploadFixtures = new Map<DocumentPurpose, ApplicationDocumentFixture>();
   private readonly pendingResponseReads: Promise<void>[] = [];
+  private readonly generationPayloads: Array<Record<string, unknown>> = [];
   private generationStarts = 0;
   private readonly generationStartRequests: Array<{
     pathname: string;
@@ -89,6 +123,12 @@ export class ApplicationDocumentJourneyPage {
       const pathname = new URL(response.url()).pathname;
       const isUploadCommand = /^\/api\/v1\/document-generation\/applications\/[^/]+\/document-uploads$/.test(pathname);
       const isUploadStatus = /^\/api\/v1\/document-generation\/application-document-uploads\/[^/]+$/.test(pathname);
+      const isGenerationOperation = /^\/api\/v1\/document-generation\/(?:saved-jobs\/[^/]+\/operations|operations\/[^/]+(?:\/approve)?)$/.test(pathname);
+      if (isGenerationOperation && response.headers()['content-type']?.includes('application/json')) {
+        this.pendingResponseReads.push(response.json().then(body => {
+          if (isRecord(body)) this.generationPayloads.push(body);
+        }).catch(() => undefined));
+      }
       if (!isUploadCommand && !isUploadStatus) return;
       this.uploadResponses.push(response);
       this.pendingResponseReads.push(response.json().then(body => {
@@ -121,15 +161,16 @@ export class ApplicationDocumentJourneyPage {
       await this.page.goto('/dashboard');
       await this.demoClick(this.page.getByTestId('workspace-tab-search'));
     }
-    await this.ensureSearchResults(entryPoint, preferredJob);
+    await this.ensureSearchResults(entryPoint, preferredJob, options);
     await expect(this.page.getByTestId('job-result-card').first()).toBeVisible({ timeout: 30_000 });
+    if (preferredJob) await this.selectPreferredTargetRole(preferredJob);
     this.selectedCard = await this.openJobCard(entryPoint, preferredJob);
     const action = this.selectedCard.getByTestId(
       entryPoint === 'ADD' ? 'track-application-button' : 'generate-documents-button'
     );
     if (entryPoint === 'GENERATE'
       && !options.confirmedGenerationEvidenceAlreadyVerified) {
-      await this.ensureConfirmedGenerationEvidence();
+      await this.ensureConfirmedGenerationEvidence(options.generationEvidence);
     }
     const createsApplication = await this.selectedCard.getByTestId('track-application-button')
       .isVisible().catch(() => false);
@@ -158,7 +199,11 @@ export class ApplicationDocumentJourneyPage {
     await expect(this.page.getByTestId('application-document-choice')).toBeVisible();
   }
 
-  private async ensureSearchResults(entryPoint: 'ADD' | 'GENERATE', preferredJob?: PreferredJob): Promise<void> {
+  private async ensureSearchResults(
+    entryPoint: 'ADD' | 'GENERATE',
+    preferredJob?: PreferredJob,
+    options: JourneyStartOptions = {},
+  ): Promise<void> {
     const cards = this.page.getByTestId('job-result-card');
     if (entryPoint === 'ADD' && await cards.first().isVisible().catch(() => false)) return;
     if (preferredJob) {
@@ -184,7 +229,7 @@ export class ApplicationDocumentJourneyPage {
       await this.saveProfileSection();
     }
 
-    if (entryPoint === 'GENERATE' && !preferredJob) {
+    if (entryPoint === 'GENERATE' && !preferredJob && !options.preserveProfileLocation) {
       // DEMO_READY intentionally owns all nine core fixture jobs. Search Leeds
       // so the untracked governed apprenticeship vacancy is available for a
       // fresh generation journey rather than selecting a progressed application.
@@ -235,7 +280,9 @@ export class ApplicationDocumentJourneyPage {
     await expect(save).toBeHidden();
   }
 
-  private async ensureConfirmedGenerationEvidence(): Promise<void> {
+  private async ensureConfirmedGenerationEvidence(
+    evidence: ConfirmedGenerationEvidence = DEFAULT_GENERATION_EVIDENCE,
+  ): Promise<void> {
     const summary = this.page.getByTestId('profile-evidence-summary');
     await summary.getByRole('button', { name: 'Manage experience & achievements', exact: true }).click();
     const dialog = this.page.locator('#experience-evidence-dialog');
@@ -250,7 +297,7 @@ export class ApplicationDocumentJourneyPage {
       await expect(dialog).toBeHidden();
       return;
     }
-    let card = dialog.locator('article.evidence-card').filter({ hasText: GENERATION_EVIDENCE_TITLE });
+    let card = dialog.locator('article.evidence-card').filter({ hasText: evidence.title });
     if (await card.getByText('User confirmed', { exact: true }).isVisible().catch(() => false)) {
       await dialog.getByRole('button', { name: 'Close Experience and Evidence manager' }).click();
       await expect(dialog).toBeHidden();
@@ -261,13 +308,11 @@ export class ApplicationDocumentJourneyPage {
     const form = dialog.locator('form');
     await expect(form).toBeVisible();
     await form.locator('select[name="category"]').selectOption('PROJECT');
-    await form.getByLabel('Project title', { exact: true }).fill(GENERATION_EVIDENCE_TITLE);
-    await form.getByLabel('Your role in the project (optional)', { exact: true }).fill('Software developer');
-    await form.locator('textarea[name="description"]').fill(
-      'Built a fully synthetic Java and Angular workflow with secure REST APIs, automated tests, accessible interfaces and deterministic document-generation integration.'
-    );
-    await form.locator('input[name="startDate"]').fill('2025-01-01');
-    await form.locator('input[name="endDate"]').fill('2026-07-01');
+    await form.getByLabel('Project title', { exact: true }).fill(evidence.title);
+    await form.getByLabel('Your role in the project (optional)', { exact: true }).fill(evidence.role);
+    await form.locator('textarea[name="description"]').fill(evidence.description);
+    await form.locator('input[name="startDate"]').fill(evidence.startDate);
+    await form.locator('input[name="endDate"]').fill(evidence.endDate);
 
     const created = this.page.waitForResponse(response =>
       response.request().method() === 'POST'
@@ -275,7 +320,7 @@ export class ApplicationDocumentJourneyPage {
     await form.getByRole('button', { name: 'Save as draft', exact: true }).click();
     expect((await created).ok(), 'Synthetic generation evidence must be saved.').toBe(true);
 
-    card = dialog.locator('article.evidence-card').filter({ hasText: GENERATION_EVIDENCE_TITLE });
+    card = dialog.locator('article.evidence-card').filter({ hasText: evidence.title });
     await expect(card).toBeVisible();
     const confirmed = this.page.waitForResponse(response =>
       response.request().method() === 'POST'
@@ -428,7 +473,9 @@ export class ApplicationDocumentJourneyPage {
     }
 
     const startsBefore = this.generationStarts;
-    const action = selector.getByRole('button', { name: /^Generate .*AI Credit/ });
+    const action = selector.getByRole('button', {
+      name: /^Generate .*\(\d+ document credits?(?: if (?:both are )?delivered)?\)$/,
+    });
     await expect(action).toBeEnabled();
     await this.demoClick(action);
     const selectedCard = this.selectedJobCard();
@@ -541,7 +588,7 @@ export class ApplicationDocumentJourneyPage {
       await this.completeGeneration(expectedPurposes);
       const message = this.selectedJobCard().locator('.generation-message');
       await expect(message).toContainText(
-        'CV recovered with an evidence-based fallback — no AI Credit charged.'
+        'CV recovered with an evidence-based fallback — no document credit used.'
       );
       await expect(message).toContainText(
         'Cover letter recovered safely without a duplicate request.'
@@ -687,7 +734,13 @@ export class ApplicationDocumentJourneyPage {
         expect(reference ?? null).toBeNull();
         continue;
       }
-      expect(reference?.documentId).toMatch(UUID);
+      if (!reference?.documentId) {
+        throw new Error(
+          `Generated ${purpose} document reference is missing from application ${record.id}: `
+          + JSON.stringify(record),
+        );
+      }
+      expect(reference.documentId).toMatch(UUID);
       expect(reference?.version).toBeGreaterThan(0);
       expect(reference?.selectedAt).toBeTruthy();
       expect(reference?.sourceType).toBe(choice === 'UPLOAD' ? 'UPLOADED' : 'GENERATED');
@@ -721,6 +774,121 @@ export class ApplicationDocumentJourneyPage {
     };
   }
 
+  async exportGeneratedReviewBundle(
+    outputDirectory: string,
+    filePrefix: string,
+    candidateName: string,
+  ): Promise<GeneratedReviewBundle> {
+    if (!path.isAbsolute(outputDirectory)) {
+      throw new Error('The release review directory must be an absolute host path.');
+    }
+    const safePrefix = filePrefix.replace(/[^a-z0-9-]+/gi, '-').replace(/^-+|-+$/g, '');
+    if (!safePrefix) throw new Error('The release review file prefix is invalid.');
+    await mkdir(outputDirectory, {recursive: true});
+    const application = await this.preparedApplicationExpectation();
+    const applicationRecord = await this.currentApplication();
+    await Promise.all(this.pendingResponseReads);
+    const completedOperation = [...this.generationPayloads]
+      .reverse()
+      .find(payload => payload['state'] === 'COMPLETED'
+        && payload['applicationId'] === application.id);
+    if (!completedOperation) {
+      throw new Error(`No completed generation evidence was captured for application ${application.id}.`);
+    }
+    const groundingFile = `${safePrefix}-grounding.json`;
+    await writeFile(
+      path.join(outputDirectory, groundingFile),
+      `${JSON.stringify(this.releaseGroundingEvidence(
+        completedOperation,
+        application,
+        applicationRecord,
+      ), null, 2)}\n`,
+    );
+    const artifacts: GeneratedReviewBundle['artifacts'] = [];
+    const documents: Array<[DocumentPurpose, string]> = [
+      ['CV', application.cvDocumentId],
+      ['COVER_LETTER', application.coverLetterDocumentId],
+    ];
+    for (const [purpose, documentId] of documents) {
+      const metadataResponse = await this.page.request.get(new URL(
+        `/api/v1/document-generation/documents/${documentId}/files/latest`,
+        this.baseUrl,
+      ).toString());
+      expect(metadataResponse.status(), `${purpose} file metadata must be available.`).toBe(200);
+      const metadata = await metadataResponse.json() as {
+        docx?: {downloadUrl?: string};
+        pdf?: {downloadUrl?: string};
+      };
+      for (const format of ['DOCX', 'PDF'] as const) {
+        const downloadUrl = format === 'DOCX'
+          ? metadata.docx?.downloadUrl
+          : metadata.pdf?.downloadUrl;
+        if (!downloadUrl) throw new Error(`${purpose} has no ${format} download URL.`);
+        const response = await this.page.request.get(new URL(downloadUrl, this.baseUrl).toString());
+        expect(response.status(), `${purpose} ${format} download must succeed.`).toBe(200);
+        expect(response.headers()['cache-control']).toContain('private');
+        expect(response.headers()['cache-control']).toContain('no-store');
+        const bytes = await response.body();
+        expect(bytes.length, `${purpose} ${format} download must not be empty.`).toBeGreaterThan(500);
+        if (format === 'DOCX') {
+          const text = docxParagraphs(bytes).join('\n');
+          expect(text.length, `${purpose} DOCX must contain reviewable text.`).toBeGreaterThan(150);
+          expect(text).toContain(candidateName);
+          expect(text).toContain(application.title);
+          if (purpose === 'COVER_LETTER') expect(text).toContain(application.company);
+        }
+        const extension = format.toLowerCase();
+        const purposeName = purpose === 'CV' ? 'cv' : 'cover-letter';
+        const file = `${safePrefix}-${purposeName}.${extension}`;
+        await writeFile(path.join(outputDirectory, file), bytes);
+        artifacts.push({
+          bytes: bytes.length,
+          documentId,
+          file,
+          format,
+          purpose,
+          sha256: createHash('sha256').update(bytes).digest('hex'),
+        });
+      }
+    }
+    return {application, groundingReport: groundingFile, artifacts};
+  }
+
+  private releaseGroundingEvidence(
+    operation: Record<string, unknown>,
+    application: PreparedApplicationExpectation,
+    applicationRecord: ApplicationRecord,
+  ): Record<string, unknown> {
+    const outputs = isRecord(operation['outputResults']) ? operation['outputResults'] : {};
+    const evidenceFor = (purpose: DocumentPurpose): Record<string, unknown> => {
+      const output = isRecord(outputs[purpose]) ? outputs[purpose] : {};
+      const generation = isRecord(output['generation']) ? output['generation'] : {};
+      return {
+        billingOutcome: output['billingOutcome'],
+        claimLedger: generation['claimLedger'],
+        documentId: output['documentId'],
+        evidenceSnapshot: output['evidenceSnapshot'],
+        generationMetadata: generation['generationMetadata'],
+        recovery: generation['recovery'],
+        status: output['status'],
+      };
+    };
+    return {
+      application,
+      documentReferences: {
+        CV: applicationRecord.cvDocumentReference,
+        COVER_LETTER: applicationRecord.coverLetterDocumentReference,
+      },
+      failureCode: operation['failureCode'],
+      operationId: operation['operationId'],
+      outputs: {
+        CV: evidenceFor('CV'),
+        COVER_LETTER: evidenceFor('COVER_LETTER'),
+      },
+      state: operation['state'],
+    };
+  }
+
   async assertUploadCreditAndBoundary(expectedUploads: number): Promise<void> {
     expect(await this.walletBalance()).toBe(this.walletBefore);
     expect(this.generationStarts, 'Upload-only choices must not start paid generation.').toBe(0);
@@ -742,7 +910,7 @@ export class ApplicationDocumentJourneyPage {
     if (this.walletBefore !== undefined) {
       expect(after).toBeLessThan(this.walletBefore);
     } else {
-      expect(after, 'The private-beta wallet surface must remain consistently unavailable.').toBeUndefined();
+      expect(after, 'The document-credit wallet surface must remain consistently unavailable.').toBeUndefined();
     }
   }
 
@@ -863,6 +1031,20 @@ export class ApplicationDocumentJourneyPage {
     throw new Error(`The job search returned no ${entryPoint.toLowerCase()} application candidate.`);
   }
 
+  private async selectPreferredTargetRole(preferredJob: PreferredJob): Promise<void> {
+    const cards = this.page.getByTestId('job-result-card');
+    if (await this.preferredJobCard(cards, preferredJob).isVisible().catch(() => false)) return;
+    const role = this.page.locator('[aria-label="Target role filters"] button')
+      .filter({hasText: preferredJob.title})
+      .first();
+    if (!await role.isVisible().catch(() => false)) return;
+    await role.click();
+    await expect(
+      this.preferredJobCard(cards, preferredJob),
+      `The ${preferredJob.title} target-role search did not return the governed review vacancy.`,
+    ).toBeVisible({timeout: 30_000});
+  }
+
   private preferredJobCard(cards: Locator, preferredJob: PreferredJob): Locator {
     if (preferredJob.canonicalJobId) {
       if (!/^[A-Za-z0-9._:-]{1,128}$/.test(preferredJob.canonicalJobId)) {
@@ -967,16 +1149,16 @@ export class ApplicationDocumentJourneyPage {
 
   private async walletBalance(): Promise<number | undefined> {
     const body = await this.page.evaluate(async () => {
-      const response = await fetch('/api/v1/payment/wallet');
+      const response = await fetch('/api/v2/payments/wallet');
       if (response.status === 404) return undefined;
       if (!response.ok) throw new Error(`Wallet request failed with HTTP ${response.status}.`);
       return await response.json() as unknown;
     });
     if (body === undefined) return undefined;
-    if (!isRecord(body) || typeof body.balanceTokens !== 'number') {
-      throw new Error('Wallet response did not contain a numeric balanceTokens value.');
+    if (!isRecord(body) || typeof body.balanceDocumentCredits !== 'number') {
+      throw new Error('Wallet response did not contain a numeric balanceDocumentCredits value.');
     }
-    return body.balanceTokens;
+    return body.balanceDocumentCredits;
   }
 
   private assertContentFree(value: unknown): void {

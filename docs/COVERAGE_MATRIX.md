@@ -10,7 +10,7 @@ Status values: **Covered**, **Partial**, **Explicit live**, or **Gap**. `Fixture
 | Password reset | No | Yes | Enumeration, token persistence and session revocation | No | No | Fixture or LocalStack SES | Covered |
 | Profile setup and edits | Yes | Yes | Unavailable location and duplicate save | REGISTER | No | Fixture postcode/location | Covered |
 | Job search and provider presentation | Yes | Yes | Real-provider stabilisation separately gated | DISCOVER | DISCOVER | Five fixture providers | Covered |
-| Job matching relevance | Meaningful match | Three software-role fixture paths plus four explained non-software empty states | Aligned non-software fixture coverage remains incomplete | DISCOVER | DISCOVER | Fixture matching | Partial |
+| Job matching relevance | Meaningful match | Seven aligned persona paths across software, administration, finance and project support | Provider and irrelevant-result filtering retained | DISCOVER | DISCOVER | Fixture matching | Covered |
 | Location selection | Yes | Yes | Unavailable-provider feedback | REGISTER | No | Fixture location | Covered |
 | Commute preferences and assessment | Preferences | Yes | Unavailable location and field-contract assertions | DISCOVER | DISCOVER | Fixture location; Google disabled | Covered |
 | View/select a job | Yes | Yes | Safe source-link policies below browser | DISCOVER | DISCOVER | Fixture jobs | Covered |
@@ -40,15 +40,15 @@ The governed `real-world-personas-v2` state provides seven machine-readable prof
 
 | Persona | Profile/search | Upload | Generate | Track/return | Boundary status |
 |---|---:|---:|---:|---:|---|
-| Minimal | Yes | Not in replay | Gap — no aligned fixture | Profile reload | Sparse evidence persists; explained administrative empty state |
+| Minimal | Yes | Not in replay | CV + cover letter | Tracked application + downloads | Sparse administrative evidence remains grounded |
 | Typical | Yes | Not in replay | Yes | Tracked application reference | Complete generated-CV journey |
 | Rich | Yes | Not in replay | Yes | Tracked application reference | Detailed evidence survives reload and grounds generation |
 | Very rich | Yes | Not in replay | Yes | Tracked application reference | 18-engagement boundary; not maximum scale |
-| Uploaded-CV-first | Yes | Gap — no aligned fixture | Gap — no aligned fixture | Profile reload | Finance evidence persists; file-first journey needs an aligned vacancy |
-| Manual-profile-first | Yes | Gap — no aligned fixture | Gap — no aligned fixture | Profile reload | Explained empty state; later-upload merge remains unproved in-browser |
-| Career-changer | Yes | Not in replay | Gap — no aligned fixture | Profile reload | Teaching evidence remains intact; grounded target-role generation remains unproved |
+| Uploaded-CV-first | Yes | Dedicated mixed-flow coverage | CV + cover letter | Tracked application + downloads | Finance evidence grounds an Accounts Assistant application |
+| Manual-profile-first | Yes | Dedicated upload coverage | CV + cover letter | Tracked application + downloads | Structured evidence remains unchanged after generation |
+| Career-changer | Yes | Not in replay | CV + cover letter | Tracked application + downloads | Transferable teaching evidence grounds programme-support outputs |
 
-This table records only the shared `REAL_WORLD_PERSONAS` browser replay; upload and broader document coverage are recorded in the capability rows above. “No aligned fixture” records an intentional, asserted empty state in the software-focused catalogue, which has no aligned administrative, finance or project-delivery vacancy, rather than a skipped or fabricated journey. It does not imply a paid call for every row. Bounded Reed, Adzuna, JSearch and OpenAI validation is reported separately; Google and live Stripe are not configured.
+This table records the shared `REAL_WORLD_PERSONAS` browser replay; upload and broader document coverage are recorded in the capability rows above. Dataset 1.2 adds six wholly synthetic aligned vacancies and retains provider-neutral deterministic execution. The replay does not imply a paid call for every row. Bounded Reed, Adzuna, JSearch and OpenAI validation is reported separately; Google and live Stripe are not configured.
 
 ## Suite categories
 

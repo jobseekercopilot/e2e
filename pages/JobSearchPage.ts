@@ -102,7 +102,7 @@ export class JobSearchPage extends BasePage {
       expect(value['externalCallsEnabled']).toBe(false);
       if (['REED', 'ADZUNA', 'JSEARCH'].includes(provider)) {
         expect(value['datasetId']).toBe('uk-software-developer-demo');
-        expect(value['datasetVersion']).toBe('1.1.0');
+        expect(value['datasetVersion']).toBe('1.2.0');
         expect(value['scenario']).toBe('DEMO_READY');
       } else {
         expect(value['datasetId'] ?? null).toBeNull();

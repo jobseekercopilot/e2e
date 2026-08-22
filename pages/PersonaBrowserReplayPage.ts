@@ -1,16 +1,15 @@
 import { expect, type Browser, type Page } from '@playwright/test';
-import { ApplicationDocumentJourneyPage } from './ApplicationDocumentJourneyPage';
+import { writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import {
+  ApplicationDocumentJourneyPage,
+  type ConfirmedGenerationEvidence,
+  type PreferredJob,
+} from './ApplicationDocumentJourneyPage';
 import { PUBLIC_NAMED_STATE_PASSWORD } from '../support/demo-data';
 import type { NamedStateDefinition } from '../support/system-data';
 
 type PersonaIdentity = NamedStateDefinition['identities'][number];
-
-const PERSONAS_WITHOUT_ALIGNED_FIXTURES = new Set([
-  'minimal-profile',
-  'uploaded-cv-first',
-  'manual-profile-first',
-  'career-changer',
-]);
 
 interface ProfileShape {
   bytes: number;
@@ -20,11 +19,87 @@ interface ProfileShape {
   skills: number;
 }
 
-const EMPTY_FIXTURE_TARGET_ROLES: Record<string, string[]> = {
-  'minimal-profile': ['Administrative Assistant'],
-  'uploaded-cv-first': ['Accounts Assistant', 'Payroll Administrator'],
-  'manual-profile-first': ['Project Coordinator', 'Junior Project Manager'],
-  'career-changer': ['Project Coordinator', 'Programme Support Officer'],
+const PERSONA_GENERATION_EVIDENCE: Record<string, ConfirmedGenerationEvidence> = {
+  'minimal-profile': {
+    title: 'Community reception rota improvement',
+    role: 'Administrative volunteer',
+    description: 'Organised a fictional weekly reception rota, maintained accurate Microsoft Office records and responded to routine visitor questions with clear customer service.',
+    startDate: '2025-03-01',
+    endDate: '2026-02-28',
+  },
+  'typical-profile': {
+    title: 'Accessible service workflow delivery',
+    role: 'Software developer',
+    description: 'Delivered a fictional Java and Angular service workflow using Spring Boot, REST APIs, automated tests and accessible interface components within a collaborative team.',
+    startDate: '2024-04-01',
+    endDate: '2026-07-01',
+  },
+  'rich-profile': {
+    title: 'Order service reliability programme',
+    role: 'Senior software engineer',
+    description: 'Led a fictional reliability improvement across Java services, contract tests and deployment dashboards while mentoring four engineers and reducing deployment lead time.',
+    startDate: '2023-01-01',
+    endDate: '2026-06-30',
+  },
+  'very-rich-profile': {
+    title: 'Regulated platform reliability review',
+    role: 'Principal platform consultant',
+    description: 'Directed a fictional twelve-service platform review, facilitated architecture decisions and introduced reliability controls that reduced priority incidents by 38 percent.',
+    startDate: '2025-04-01',
+    endDate: '2026-07-31',
+  },
+  'uploaded-cv-first': {
+    title: 'Supplier statement reconciliation improvement',
+    role: 'Finance administrator',
+    description: 'Improved a fictional invoice and supplier-statement process using bookkeeping knowledge, Excel and Xero while continuing to answer customer account queries accurately.',
+    startDate: '2024-01-01',
+    endDate: '2026-06-30',
+  },
+  'manual-profile-first': {
+    title: 'Four-workstream governance coordination',
+    role: 'Project support officer',
+    description: 'Coordinated a fictional four-workstream programme by maintaining plans, risks, actions and budget reports and preparing clear governance updates for suppliers and stakeholders.',
+    startDate: '2023-01-01',
+    endDate: '2026-07-31',
+  },
+  'career-changer': {
+    title: 'Nine-colleague curriculum change',
+    role: 'Secondary school teacher',
+    description: 'Coordinated a fictional curriculum change involving nine colleagues by planning milestones, facilitating workshops, tracking risks and reporting progress to families and school leaders.',
+    startDate: '2025-01-01',
+    endDate: '2026-07-31',
+  },
+};
+
+const PERSONA_REVIEW_JOBS: Record<string, PreferredJob> = {
+  'minimal-profile': {
+    title: 'Administrative Assistant',
+    company: 'Midland Community Services',
+  },
+  'typical-profile': {
+    title: 'Java Software Developer',
+    company: 'Northstar Digital Labs',
+  },
+  'rich-profile': {
+    title: 'Senior Software Engineer',
+    company: 'Mersey Reliability Systems',
+  },
+  'very-rich-profile': {
+    title: 'Platform Architect',
+    company: 'Thames Regulated Platforms',
+  },
+  'uploaded-cv-first': {
+    title: 'Accounts Assistant',
+    company: 'Yorkshire Neighbourhood Homes',
+  },
+  'manual-profile-first': {
+    title: 'Project Coordinator',
+    company: 'Bristol Learning Partnership',
+  },
+  'career-changer': {
+    title: 'Programme Support Officer',
+    company: 'North West Skills Network',
+  },
 };
 
 function largestArrayForKey(value: unknown, target: string): number {
@@ -56,6 +131,9 @@ export class PersonaBrowserReplayPage {
     ];
     expect(identities.map(identity => identity.key)).toEqual(expectedKeys);
 
+    const reviewDirectory = process.env['RELEASE_REVIEW_DIR']?.trim();
+    const reviewBundles: Array<Record<string, unknown>> = [];
+    const reviewIndex: string[] = [];
     for (const identity of identities) {
       const context = await this.browser.newContext({baseURL: this.baseUrl});
       try {
@@ -68,14 +146,38 @@ export class PersonaBrowserReplayPage {
         expect(await this.profileShape(page, identity)).toEqual(before);
 
         const journey = new ApplicationDocumentJourneyPage(page, this.baseUrl);
-        if (PERSONAS_WITHOUT_ALIGNED_FIXTURES.has(identity.key)) {
-          await this.assertNoAlignedFixtureResults(page, identity.key);
-        } else {
-          await journey.startJourney('GENERATE');
-          await this.assertMeaningfulSearch(page);
-          await journey.chooseDocuments({CV: 'GENERATE', COVER_LETTER: 'OMIT'});
-          await journey.completeGeneration(['CV']);
-          await journey.assertApplication({CV: 'GENERATE', COVER_LETTER: 'OMIT'});
+        const generationEvidence = PERSONA_GENERATION_EVIDENCE[identity.key];
+        if (!generationEvidence) throw new Error(`No generation evidence is defined for ${identity.key}.`);
+        const preferredJob = PERSONA_REVIEW_JOBS[identity.key];
+        if (!preferredJob) throw new Error(`No review job is defined for ${identity.key}.`);
+        await journey.startJourney('GENERATE', preferredJob, {
+          generationEvidence,
+          preserveProfileLocation: true,
+        });
+        await this.assertMeaningfulSearch(page);
+        await journey.chooseDocuments({CV: 'GENERATE', COVER_LETTER: 'GENERATE'});
+        await journey.completeGeneration(['CV', 'COVER_LETTER'], generationEvidence.title);
+        await journey.assertApplication({CV: 'GENERATE', COVER_LETTER: 'GENERATE'});
+        if (reviewDirectory) {
+          const bundle = await journey.exportGeneratedReviewBundle(
+            reviewDirectory,
+            identity.key,
+            identity.displayName,
+          );
+          reviewBundles.push({
+            candidate: {
+              displayName: identity.displayName,
+              key: identity.key,
+            },
+            generationEvidence,
+            targetJob: preferredJob,
+            ...bundle,
+          });
+          reviewIndex.push(
+            `- **${identity.displayName} (${identity.key})** — ${bundle.application.title} at `
+            + `${bundle.application.company}; CV and cover letter in PDF/DOCX; `
+            + `grounding evidence: \`${bundle.groundingReport}\`.`,
+          );
         }
 
         const after = await this.profileShape(page, identity);
@@ -92,6 +194,31 @@ export class PersonaBrowserReplayPage {
       } finally {
         await context.close();
       }
+    }
+    if (reviewDirectory) {
+      await writeFile(
+        path.join(reviewDirectory, 'manifest.json'),
+        `${JSON.stringify({
+          generatedAt: new Date().toISOString(),
+          namedState: 'REAL_WORLD_PERSONAS',
+          dataset: 'uk-software-developer-demo:1.2.0',
+          personas: reviewBundles,
+          schemaVersion: 'release-review-v1',
+        }, null, 2)}\n`,
+      );
+      await writeFile(
+        path.join(reviewDirectory, 'README.md'),
+        `# Job Seeker Copilot release-candidate document review\n\n`
+        + `Generated through the full local browser journey from governed, wholly synthetic `
+        + `personas and vacancies. Each persona has a CV and cover letter in PDF and DOCX. `
+        + `The associated grounding report records the exact application, immutable document `
+        + `references, evidence-snapshot and claim-ledger digests, generation status and billing `
+        + `outcome without test secrets.\n\n`
+        + `Dataset: \`uk-software-developer-demo:1.2.0\`  \n`
+        + `Named state: \`REAL_WORLD_PERSONAS\`  \n`
+        + `Artifacts: 28 documents plus 7 grounding reports\n\n`
+        + `## Scenarios\n\n${reviewIndex.join('\n')}\n`,
+      );
     }
   }
 
@@ -161,67 +288,10 @@ export class PersonaBrowserReplayPage {
     }
   }
 
-  private async assertNoAlignedFixtureResults(page: Page, identityKey: string): Promise<void> {
-    const expectedRoles = EMPTY_FIXTURE_TARGET_ROLES[identityKey];
-    if (!expectedRoles) throw new Error(`No empty-fixture contract for ${identityKey}.`);
-    await page.getByTestId('workspace-tab-search').click();
-    const workspace = page.getByTestId('job-results-workspace');
-    const findJobs = page.getByRole('button', {name: 'Find jobs', exact: true});
-    await expect(findJobs).toBeEnabled();
-
-    for (const [index, role] of expectedRoles.entries()) {
-      const tab = workspace.getByRole('button', {
-        name: new RegExp(`^${escapeRegExp(role)} \\((?:Not searched|0)\\)$`),
-      });
-      await expect(tab).toBeVisible();
-      const searchResponse = page.waitForResponse(response =>
-        response.request().method() === 'POST'
-        && new URL(response.url()).pathname === '/api/jobs/search');
-      if (index === 0) {
-        await findJobs.click();
-      } else {
-        await tab.click();
-      }
-      const completedSearch = await searchResponse;
-      expect(completedSearch.ok(), `The ${role} fixture search must complete successfully.`).toBe(true);
-      const responseBody: unknown = await completedSearch.json();
-      if (!isRecord(responseBody)) throw new Error(`The ${role} fixture search returned a non-object response.`);
-      const responseGroups = array(responseBody['resultsByTargetRole']).filter(isRecord);
-      expect(responseGroups.map(group => ({
-        jobs: array(group['jobs']).length,
-        targetRole: group['targetRole'],
-        totalResults: group['totalResults'],
-      }))).toEqual([{
-        jobs: 0,
-        targetRole: role,
-        totalResults: 0,
-      }]);
-
-      await expect(workspace.getByRole('button', {name: 'Refresh', exact: true}))
-        .toBeEnabled({timeout: 30_000});
-      await expect(workspace.getByRole('button', {name: `${role} (0)`, exact: true}))
-        .toHaveAttribute('aria-current', 'true');
-      await expect(workspace.getByTestId('job-search-provider-mode'))
-        .toHaveText('Fixture-backed provider data');
-      await expect(workspace.getByTestId('job-result-card')).toHaveCount(0);
-      await expect(workspace).toContainText('No jobs match your current profile.');
-      await expect(workspace.getByTestId('job-search-trust-summary').locator('.search-filter-summary'))
-        .toHaveText('2 unrelated occupations filtered before ranking.');
-      await expect(workspace.getByTestId('generate-documents-button')).toHaveCount(0);
-    }
-  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function array(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function profileEvidenceSnapshot(profile: unknown): string {

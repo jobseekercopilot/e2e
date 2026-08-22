@@ -45,7 +45,7 @@ export class DashboardPage extends BasePage {
     // TODO frontend: add data-testid values for dashboard-ai-credit-widget,
     // dashboard-application-stats and dashboard-document-stats.
     await expect(
-      this.page.getByText(/AI Credit|Applications|Documents|Job Matches|Claimant Profile/i).first()
+      this.page.getByText(/Document credits|Applications|Documents|Job Matches|Claimant Profile/i).first()
     ).toBeVisible();
   }
 

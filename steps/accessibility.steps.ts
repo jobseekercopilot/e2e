@@ -31,8 +31,10 @@ When('he attempts to continue registration using only the keyboard', async funct
 Then('registration validation focus moves to the error summary', async function (this: JobSeekerWorld) {
   const alert = pageFor(this).getByRole('alert');
   await expect(alert).toBeFocused();
-  await expect(alert).toContainText('Check your name, email address and password');
-  await expect(pageFor(this).getByLabel(/full name/i)).toHaveAttribute('aria-invalid', 'true');
+  await expect(alert).toContainText('Confirm the current Terms of Use, Privacy Notice and UK 18+ eligibility');
+  await expect(pageFor(this).getByRole('checkbox', {
+    name: /aged 18 or over, accept the terms of use and acknowledge the privacy notice/i,
+  })).toHaveAttribute('aria-invalid', 'true');
 });
 
 When('he completes registration using only the keyboard', async function (this: JobSeekerWorld) {
@@ -49,6 +51,11 @@ When('he completes registration using only the keyboard', async function (this: 
   await registrationForm.getByLabel(/email address/i).fill(this.demoUser.email);
   const password = registrationForm.getByLabel(/^password$/i);
   await password.fill(this.demoUser.password);
+  const legalAcknowledgement = registrationForm.getByRole('checkbox', {
+    name: /aged 18 or over, accept the terms of use and acknowledge the privacy notice/i,
+  });
+  await legalAcknowledgement.focus();
+  await legalAcknowledgement.press('Space');
   await password.press('Enter');
   await password.press('Enter').catch(() => undefined);
   await expect(page.getByRole('heading', { name: /find the right opportunities/i })).toBeVisible();

@@ -42,12 +42,11 @@ export class NavigationPage extends BasePage {
     await expect(this.byTestId('workspace-panel-documents')).toBeVisible();
   }
 
-  async goToAiCredit(): Promise<void> {
-    // TODO frontend: add data-testid="nav-ai-credit".
+  async goToDocumentCredits(): Promise<void> {
     await this.goToDashboard();
-    const target = this.byTestId('ai-credit-page')
-      .or(this.byTestId('dashboard-ai-credit-widget'))
-      .or(this.page.getByText(/AI Credit/i).first());
+    const target = this.byTestId('payment-page')
+      .or(this.byTestId('dashboard-payment-widget'))
+      .or(this.page.getByText(/document credits/i).first());
     await this.intentionalScrollNearCenter(target.first());
   }
 

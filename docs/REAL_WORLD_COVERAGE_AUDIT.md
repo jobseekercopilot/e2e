@@ -1,8 +1,8 @@
-# Real-world product coverage audit — closure update, 14 August 2026
+# Real-world product coverage audit — release-candidate update, 22 August 2026
 
 ## Executive summary
 
-The intended private-beta journey is now proven across deterministic browser,
+The intended public-beta journey is now proven across deterministic browser,
 service and bounded live integrations. The prior completion-UI, LLM grounding,
 payment 404 and 25-session functional defects are fixed. The fresh 25-session
 stage passes, but at 59.449 seconds p95 it is not a comfortable operating
@@ -41,27 +41,28 @@ retains idempotent prepare, verify and reset with seven users/profiles.
 
 | Persona | Purpose | Browser result | Grounding result |
 | --- | --- | --- | --- |
-| `minimal-profile` | Sparse/null handling | Sparse profile survives reload; the software-focused catalogue reports no administrative match | No irrelevant software/NHS application or document is created; sparse generation remains a fixture gap |
+| `minimal-profile` | Sparse/null handling | Profile reload, Administrative Assistant selection, CV/cover-letter generation and private PDF/DOCX download pass | Confirmed administrative evidence grounds both documents without inventing employment history |
 | `typical-profile` | Ordinary returning user | Profile reload, search/match, generated CV and tracked application reference pass | Useful evidence-grounded tailoring |
 | `rich-profile` | Detailed employment/qualification mapping | Profile reload, matching, generated CV and tracked application reference pass | Prioritises supplied evidence |
 | `very-rich-profile` | Realistic boundary shape | Load/reload/search/match/generation pass | Coherent long-input result; no unsupported claims |
-| `uploaded-cv-first` | File-first application path | Finance profile survives reload; the software-focused catalogue reports no accounts/payroll match | File-first upload and generation remain a gap without an aligned fixture vacancy |
-| `manual-profile-first` | Structured data before later upload | Profile survives reload; the software-focused fixture search reports no aligned vacancy | No unsuitable application is created; later-upload/non-destructive-merge browser proof remains a gap without an aligned vacancy |
-| `career-changer` | Transferable evidence without invented target experience | Profile survives reload; the software-focused fixture search reports no aligned vacancy | Teaching history is retained and no target-role experience is invented; grounded career-change generation remains a fixture gap |
+| `uploaded-cv-first` | File-first application path | Finance profile reload, Accounts Assistant selection and generated document download pass | Confirmed bookkeeping evidence grounds both outputs; the existing uploaded-CV lifecycle remains covered separately |
+| `manual-profile-first` | Structured data before later upload | Profile reload, Project Coordinator selection and generated document download pass | Confirmed coordination evidence grounds both outputs without changing the saved profile |
+| `career-changer` | Transferable evidence without invented target experience | Profile reload, Programme Support Officer selection and generated document download pass | Teaching and facilitation evidence is reframed for programme support without inventing target-role employment |
 
-The full browser regression includes the shared seven-persona replay. The three
-software-role personas with available deterministic fixture results exercise
-matching and document generation; the four administrative, finance and
-project-delivery personas verify that a software-focused fixture catalogue with
-no aligned vacancies yields an explained empty state rather than an unsuitable
-application. Purpose-sized scenarios avoid seven
-copies of one expensive journey while retaining the explicit outcome for each
-profile.
+The shared seven-persona replay now exercises matching, CV generation,
+cover-letter generation, application binding and private PDF/DOCX download for
+every persona. Dataset `uk-software-developer-demo:1.2.0` contains sixteen
+synthetic vacancies spanning software, administration, finance and project
+support. The focused browser run passed 1/1 scenario and 3/3 orchestration
+steps in 65.652 seconds. Its release-review bundle contains 28 documents and
+seven grounding reports with immutable document references, evidence-snapshot
+digests and claim-ledger hashes.
 
 The canonical persona `purpose` and `capabilities` describe the intended user
-shapes and product goals. They are not claims that the shared replay proves
-every stated outcome; the file-first, later-upload and career-change generation
-gaps above are the current browser evidence boundary.
+shapes and product goals. Upload ingestion and mixed upload/generation choices
+remain proved by their dedicated browser scenarios; the shared persona replay
+deliberately uses generated/generated choices so all seven output bundles can
+be compared consistently.
 
 ## Profile source of truth and boundary
 
