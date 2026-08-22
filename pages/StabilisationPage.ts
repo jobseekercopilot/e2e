@@ -1471,7 +1471,7 @@ export class StabilisationPage {
     }
     await expect(
       selector.getByRole('button', {
-        name: /^Generate CV and Cover letter \(2 document credits if both are delivered\)$/,
+        name: /^Generate CV and Cover letter \(2 document generations if both are delivered\)$/,
       })
     ).toBeEnabled();
     return selector;
@@ -1526,7 +1526,7 @@ export class StabilisationPage {
     const selector = this.selectedJobCard().getByTestId('generation-evidence-selector');
     const generate = selector.getByRole(
       'button',
-      { name: /^Generate CV and Cover letter \(2 document credits if both are delivered\)$/ }
+      { name: /^Generate CV and Cover letter \(2 document generations if both are delivered\)$/ }
     );
     const idempotencyKeys = new Set<string>();
     let operationPathname: string | undefined;

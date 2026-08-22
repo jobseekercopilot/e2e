@@ -46,7 +46,7 @@ export class NavigationPage extends BasePage {
     await this.goToDashboard();
     const target = this.byTestId('payment-page')
       .or(this.byTestId('dashboard-payment-widget'))
-      .or(this.page.getByText(/document credits/i).first());
+      .or(this.page.getByText(/document generations/i).first());
     await this.intentionalScrollNearCenter(target.first());
   }
 

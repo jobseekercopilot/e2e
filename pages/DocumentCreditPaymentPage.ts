@@ -9,7 +9,7 @@ export interface FixtureCheckout {
   url: string;
   status: 'CHECKOUT_OPEN';
   expiresAt: string;
-  promotionBonusDocumentCredits: number;
+  promotionBonusDocumentGenerations: number;
   promotionGuaranteed: boolean;
   consumerTermsVersion: string;
   consumerAcknowledgementsRecorded: boolean;
@@ -30,7 +30,7 @@ export class DocumentCreditPaymentPage extends BasePage {
 
   async open(): Promise<void> {
     await this.page.goto('/payment');
-    await expect(this.page.getByRole('heading', {name: /document credits|credits available/i}).first())
+    await expect(this.page.getByRole('heading', {name: /document generation|generations available/i}).first())
       .toBeVisible({timeout: 20_000});
   }
 
@@ -51,27 +51,27 @@ export class DocumentCreditPaymentPage extends BasePage {
       taxTreatment: 'VAT_NOT_CHARGED',
       displayedPriceIsCheckoutTotal: true,
       automaticRenewal: false,
-      creditUnit: 'DOCUMENT',
-      freeAllowanceCredits: 2,
+      generationUnit: 'DOCUMENT',
+      freeAllowanceGenerations: 2,
     });
     expect(catalog['plans']).toEqual([
       {
         id: 'starter', name: 'Starter',
-        description: 'Up to 5 complete CV and cover-letter applications',
-        documentCredits: 10, priceMinor: 499, currency: 'GBP',
-        fullApplicationEquivalent: 5, promotionBonusDocumentCredits: 5,
+        description: '10 document generations — up to 5 complete applications',
+        documentGenerations: 10, priceMinor: 499, currency: 'GBP',
+        fullApplicationEquivalent: 5, promotionBonusDocumentGenerations: 5,
         active: true, sortOrder: 1,
       },
       {
-        id: 'active', name: 'Active', description: '25 tailored document credits',
-        documentCredits: 25, priceMinor: 1199, currency: 'GBP',
-        fullApplicationEquivalent: 12, promotionBonusDocumentCredits: 13,
+        id: 'active', name: 'Active', description: '25 tailored document generations',
+        documentGenerations: 25, priceMinor: 1199, currency: 'GBP',
+        fullApplicationEquivalent: 12, promotionBonusDocumentGenerations: 13,
         active: true, sortOrder: 2,
       },
       {
-        id: 'power', name: 'Power', description: '60 tailored document credits',
-        documentCredits: 60, priceMinor: 1999, currency: 'GBP',
-        fullApplicationEquivalent: 30, promotionBonusDocumentCredits: 30,
+        id: 'power', name: 'Power', description: '60 tailored document generations',
+        documentGenerations: 60, priceMinor: 1999, currency: 'GBP',
+        fullApplicationEquivalent: 30, promotionBonusDocumentGenerations: 30,
         active: true, sortOrder: 3,
       },
     ]);
@@ -80,21 +80,21 @@ export class DocumentCreditPaymentPage extends BasePage {
       bonusPercent: 50, customerLimit: 200,
     });
     expect(wallet).toEqual({
-      balanceDocumentCredits: 2,
-      lifetimePurchasedDocumentCredits: 0,
-      lifetimeSpentDocumentCredits: 0,
-      lifetimeReversedDocumentCredits: 0,
-      reviewDebtDocumentCredits: 0,
+      remainingDocumentGenerations: 2,
+      lifetimePurchasedDocumentGenerations: 0,
+      lifetimeUsedDocumentGenerations: 0,
+      lifetimeReversedDocumentGenerations: 0,
+      reviewDebtDocumentGenerations: 0,
       freeAllowanceGranted: true,
       status: 'ACTIVE',
     });
 
-    await expect(this.page.getByRole('heading', {name: '2 credits available'})).toBeVisible();
+    await expect(this.page.getByRole('heading', {name: '2 generations available'})).toBeVisible();
     await expect(this.page.getByText('£4.99', {exact: true})).toBeVisible();
     await expect(this.page.getByText('£11.99', {exact: true})).toBeVisible();
     await expect(this.page.getByText('£19.99', {exact: true})).toBeVisible();
-    await expect(this.page.getByText('One credit means one delivered document')).toBeVisible();
-    await expect(this.page.getByText(/No credit is used/).first()).toBeVisible();
+    await expect(this.page.getByText('One generation means one delivered document')).toBeVisible();
+    await expect(this.page.getByText(/No generation is used/).first()).toBeVisible();
   }
 
   async assertCheckoutAcknowledgements(): Promise<void> {
@@ -158,7 +158,7 @@ export class DocumentCreditPaymentPage extends BasePage {
     const checkout = record(result.body, 'checkout') as unknown as FixtureCheckout;
     expect(checkout).toMatchObject({
       status: 'CHECKOUT_OPEN',
-      promotionBonusDocumentCredits: 5,
+      promotionBonusDocumentGenerations: 5,
       promotionGuaranteed: true,
       consumerTermsVersion: 'uk-consumer-terms-2026-08-15',
       consumerAcknowledgementsRecorded: true,
@@ -166,7 +166,7 @@ export class DocumentCreditPaymentPage extends BasePage {
         catalogVersion: 'public-beta-2026-08-22',
         pricingPlanId: 'starter',
         pricingPlanName: 'Starter',
-        documentCredits: 10,
+        documentGenerations: 10,
         priceMinor: 499,
         currency: 'GBP',
         billingCountry: 'GB',
@@ -201,14 +201,14 @@ export class DocumentCreditPaymentPage extends BasePage {
     await expect(this.page.getByRole('heading', {name: /Checking payment status|Payment is still processing/}))
       .toBeVisible({timeout: 20_000});
     await expect(this.page.getByRole('heading', {name: 'Payment confirmed'})).toHaveCount(0);
-    await expect(this.page.getByText(/credits were added after secure server confirmation/))
+    await expect(this.page.getByText(/generations were added after secure server confirmation/))
       .toHaveCount(0);
     const status = await this.orderStatus();
     expect(status).toMatchObject({
       orderId: this.requireCheckout().orderId,
       status: 'CHECKOUT_OPEN',
-      creditsAdded: false,
-      totalGrantedDocumentCredits: 0,
+      generationsAdded: false,
+      totalGrantedDocumentGenerations: 0,
       messageCode: 'PAYMENT_PENDING',
     });
   }
@@ -217,17 +217,17 @@ export class DocumentCreditPaymentPage extends BasePage {
     await expect(this.page.getByRole('heading', {name: 'Payment confirmed'}))
       .toBeVisible({timeout: 20_000});
     await expect(this.page.getByText(
-      `${expectedCredits} document credits were added after secure server confirmation.`
+      `${expectedCredits} document generations were added after secure server confirmation.`
     )).toBeVisible();
     const status = await this.orderStatus();
     expect(status).toMatchObject({
       orderId: this.requireCheckout().orderId,
       status: 'FULFILLED',
-      documentCredits: 10,
-      promotionBonusDocumentCredits: 5,
-      totalGrantedDocumentCredits: 15,
-      creditsAdded: true,
-      messageCode: 'CREDITS_ADDED',
+      documentGenerations: 10,
+      promotionBonusDocumentGenerations: 5,
+      totalGrantedDocumentGenerations: 15,
+      generationsAdded: true,
+      messageCode: 'GENERATIONS_ADDED',
     });
   }
 
@@ -235,14 +235,14 @@ export class DocumentCreditPaymentPage extends BasePage {
     await expect(this.page.getByRole('heading', {name: 'Checkout expired'}))
       .toBeVisible({timeout: 20_000});
     await expect(this.page.getByText(
-      'The secure checkout expired before payment was confirmed. No document credits were added for this order.'
+      'The secure checkout expired before payment was confirmed. No document generations were added for this order.'
     )).toBeVisible();
     const status = await this.orderStatus();
     expect(status).toMatchObject({
       orderId: this.requireCheckout().orderId,
       status: 'EXPIRED',
-      totalGrantedDocumentCredits: 0,
-      creditsAdded: false,
+      totalGrantedDocumentGenerations: 0,
+      generationsAdded: false,
       messageCode: 'CHECKOUT_EXPIRED',
     });
   }
@@ -250,10 +250,10 @@ export class DocumentCreditPaymentPage extends BasePage {
   async assertFulfilledLedger(): Promise<void> {
     const wallet = record((await this.get('/api/v2/payments/wallet')).body, 'wallet');
     expect(wallet).toMatchObject({
-      balanceDocumentCredits: 17,
-      lifetimePurchasedDocumentCredits: 15,
-      lifetimeSpentDocumentCredits: 0,
-      lifetimeReversedDocumentCredits: 0,
+      remainingDocumentGenerations: 17,
+      lifetimePurchasedDocumentGenerations: 15,
+      lifetimeUsedDocumentGenerations: 0,
+      lifetimeReversedDocumentGenerations: 0,
       freeAllowanceGranted: true,
       status: 'ACTIVE',
     });
@@ -266,21 +266,21 @@ export class DocumentCreditPaymentPage extends BasePage {
     expect(transactions.filter(transaction => transaction['type'] === 'PROMOTION_BONUS')).toHaveLength(1);
 
     await this.page.goto('/payment/history');
-    const table = this.page.getByRole('table', {name: 'Document-credit history'});
+    const table = this.page.getByRole('table', {name: 'Document generation history'});
     await expect(table).toBeVisible({timeout: 20_000});
     await expect(table.getByRole('row')).toHaveCount(4);
-    await this.assertHistoryRow('Free document credits granted', '+2 credits', '2 credits');
-    await this.assertHistoryRow('Starter document credits purchased', '+10 credits', '12 credits');
-    await this.assertHistoryRow('Founding customer bonus credits granted', '+5 credits', '17 credits');
+    await this.assertHistoryRow('Free document generations added', '+2 generations', '2 generations');
+    await this.assertHistoryRow('Document generations purchased', '+10 generations', '12 generations');
+    await this.assertHistoryRow('Founding offer bonus added', '+5 generations', '17 generations');
   }
 
   async assertFreeOnlyLedger(): Promise<void> {
     const wallet = record((await this.get('/api/v2/payments/wallet')).body, 'wallet');
     expect(wallet).toMatchObject({
-      balanceDocumentCredits: 2,
-      lifetimePurchasedDocumentCredits: 0,
-      lifetimeSpentDocumentCredits: 0,
-      lifetimeReversedDocumentCredits: 0,
+      remainingDocumentGenerations: 2,
+      lifetimePurchasedDocumentGenerations: 0,
+      lifetimeUsedDocumentGenerations: 0,
+      lifetimeReversedDocumentGenerations: 0,
       freeAllowanceGranted: true,
       status: 'ACTIVE',
     });
@@ -288,16 +288,16 @@ export class DocumentCreditPaymentPage extends BasePage {
     expect(transactions).toHaveLength(1);
     expect(transactions[0]).toMatchObject({
       type: 'FREE_ALLOWANCE_GRANTED',
-      documentCredits: 2,
-      balanceBeforeDocumentCredits: 0,
-      balanceAfterDocumentCredits: 2,
+      documentGenerations: 2,
+      balanceBeforeDocumentGenerations: 0,
+      balanceAfterDocumentGenerations: 2,
     });
 
     await this.page.goto('/payment/history');
-    const table = this.page.getByRole('table', {name: 'Document-credit history'});
+    const table = this.page.getByRole('table', {name: 'Document generation history'});
     await expect(table).toBeVisible({timeout: 20_000});
     await expect(table.getByRole('row')).toHaveCount(2);
-    await this.assertHistoryRow('Free document credits granted', '+2 credits', '2 credits');
+    await this.assertHistoryRow('Free document generations added', '+2 generations', '2 generations');
     await expect(table.getByText(/purchased|bonus/i)).toHaveCount(0);
   }
 

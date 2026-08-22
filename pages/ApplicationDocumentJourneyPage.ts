@@ -222,6 +222,8 @@ export class ApplicationDocumentJourneyPage {
       const locationOption = this.page.locator('#profile-location-options button').first();
       await expect(locationOption).toBeVisible();
       await locationOption.click();
+      await expect(this.page.getByTestId('profile-location-status'))
+        .toHaveText('Location confirmed.', {timeout: 20_000});
       await this.saveProfileSection();
 
       const workplace = await this.openProfileGroup('Edit Working preferences', 'Workplace');
@@ -474,7 +476,7 @@ export class ApplicationDocumentJourneyPage {
 
     const startsBefore = this.generationStarts;
     const action = selector.getByRole('button', {
-      name: /^Generate .*\(\d+ document credits?(?: if (?:both are )?delivered)?\)$/,
+      name: /^Generate .*\(\d+ document generations?(?: if (?:both are )?delivered)?\)$/,
     });
     await expect(action).toBeEnabled();
     await this.demoClick(action);
@@ -554,9 +556,9 @@ export class ApplicationDocumentJourneyPage {
             fallbackReason: 'MODEL_OUTPUT_REJECTED',
             reconciliationStatus: 'NOT_REQUIRED',
             reconciliationAttempts: 0,
-            billingStatus: 'RELEASED_NO_CHARGE',
-            charged: false,
-            released: true,
+            billingStatus: 'COMMITTED',
+            charged: true,
+            released: false,
           },
         },
         COVER_LETTER: {
@@ -588,7 +590,7 @@ export class ApplicationDocumentJourneyPage {
       await this.completeGeneration(expectedPurposes);
       const message = this.selectedJobCard().locator('.generation-message');
       await expect(message).toContainText(
-        'CV recovered with an evidence-based fallback — no document credit used.'
+        'CV was delivered with an evidence-based fallback and used one document generation.'
       );
       await expect(message).toContainText(
         'Cover letter recovered safely without a duplicate request.'
@@ -904,13 +906,13 @@ export class ApplicationDocumentJourneyPage {
     }
   }
 
-  async assertSelectedGenerationSpentCredit(): Promise<void> {
+  async assertSelectedGenerationSpentCredit(expectedGenerations: number): Promise<void> {
     const after = await this.walletBalance();
     expect(this.generationStarts, 'Exactly one selected-output generation must start.').toBe(1);
     if (this.walletBefore !== undefined) {
-      expect(after).toBeLessThan(this.walletBefore);
+      expect(after).toBe(this.walletBefore - expectedGenerations);
     } else {
-      expect(after, 'The document-credit wallet surface must remain consistently unavailable.').toBeUndefined();
+      expect(after, 'The document-generation allowance surface must remain consistently unavailable.').toBeUndefined();
     }
   }
 
@@ -1155,10 +1157,10 @@ export class ApplicationDocumentJourneyPage {
       return await response.json() as unknown;
     });
     if (body === undefined) return undefined;
-    if (!isRecord(body) || typeof body.balanceDocumentCredits !== 'number') {
-      throw new Error('Wallet response did not contain a numeric balanceDocumentCredits value.');
+    if (!isRecord(body) || typeof body.remainingDocumentGenerations !== 'number') {
+      throw new Error('Wallet response did not contain a numeric remainingDocumentGenerations value.');
     }
-    return body.balanceDocumentCredits;
+    return body.remainingDocumentGenerations;
   }
 
   private assertContentFree(value: unknown): void {

@@ -21,11 +21,11 @@ Given('the payment acceptance account is signed in', async function (this: JobSe
   await this.dashboardPage.waitForDashboard();
 });
 
-When('the owner opens document-credit pricing', async function (this: JobSeekerWorld) {
+When('the owner opens document-generation pricing', async function (this: JobSeekerWorld) {
   await requiredPage(this).open();
 });
 
-Then('the exact server-owned document-credit catalogue and free balance are shown', async function (
+Then('the exact server-owned document-generation catalogue and free allowance are shown', async function (
   this: JobSeekerWorld
 ) {
   await requiredPage(this).assertCatalogAndFreeWallet();
@@ -67,7 +67,7 @@ When('the signed completed provider event is delivered twice', async function (
   expect(replay.orderId).toBe(checkout.orderId);
 });
 
-Then('the owner return page confirms exactly 15 credits were added', async function (
+Then('the owner return page confirms exactly 15 generations were added', async function (
   this: JobSeekerWorld
 ) {
   await requiredPage(this).assertFulfilledReturn(15);
@@ -85,7 +85,7 @@ When('the owner visits the cancellation return before provider reconciliation', 
   await requiredPage(this).visitReturn('cancel');
 });
 
-Then('the return link does not claim payment or credits', async function (
+Then('the return link does not claim payment or generations', async function (
   this: JobSeekerWorld
 ) {
   await requiredPage(this).assertPendingReturn();
@@ -102,7 +102,7 @@ When('the signed expired provider event is delivered twice', async function (
   expect(replay.orderId).toBe(checkout.orderId);
 });
 
-Then('the owner return page confirms checkout expiry with no credits added', async function (
+Then('the owner return page confirms checkout expiry with no generations added', async function (
   this: JobSeekerWorld
 ) {
   await requiredPage(this).assertExpiredReturn();
@@ -116,7 +116,7 @@ Then('the wallet and history contain only the free allowance', async function (
 
 function requiredPage(world: JobSeekerWorld) {
   if (!world.documentCreditPaymentPage) {
-    throw new Error('Document-credit payment page was not initialised.');
+    throw new Error('Document-generation payment page was not initialised.');
   }
   return world.documentCreditPaymentPage;
 }

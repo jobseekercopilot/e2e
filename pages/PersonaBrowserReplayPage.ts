@@ -9,7 +9,7 @@ import {
 import { PUBLIC_NAMED_STATE_PASSWORD } from '../support/demo-data';
 import type { NamedStateDefinition } from '../support/system-data';
 
-type PersonaIdentity = NamedStateDefinition['identities'][number];
+export type PersonaIdentity = NamedStateDefinition['identities'][number];
 
 interface ProfileShape {
   bytes: number;
@@ -19,7 +19,7 @@ interface ProfileShape {
   skills: number;
 }
 
-const PERSONA_GENERATION_EVIDENCE: Record<string, ConfirmedGenerationEvidence> = {
+export const PERSONA_GENERATION_EVIDENCE: Record<string, ConfirmedGenerationEvidence> = {
   'minimal-profile': {
     title: 'Community reception rota improvement',
     role: 'Administrative volunteer',
@@ -71,7 +71,7 @@ const PERSONA_GENERATION_EVIDENCE: Record<string, ConfirmedGenerationEvidence> =
   },
 };
 
-const PERSONA_REVIEW_JOBS: Record<string, PreferredJob> = {
+export const PERSONA_REVIEW_JOBS: Record<string, PreferredJob> = {
   'minimal-profile': {
     title: 'Administrative Assistant',
     company: 'Midland Community Services',

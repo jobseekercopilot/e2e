@@ -92,10 +92,10 @@ Then('the saved application contains the exact selected document references', as
   await journey(this).assertApplication(this.applicationDocumentChoices);
 });
 
-Then('the application document credit and content boundary is correct', async function (this: JobSeekerWorld) {
+Then('the application document generation allowance and content boundary is correct', async function (this: JobSeekerWorld) {
   const generated = selected(this, 'GENERATE');
   if (generated.length > 0) {
-    await journey(this).assertSelectedGenerationSpentCredit();
+    await journey(this).assertSelectedGenerationSpentCredit(generated.length);
     if (selected(this, 'UPLOAD').length > 0) {
       await journey(this).assertUploadBoundary(selected(this, 'UPLOAD').length);
     }
