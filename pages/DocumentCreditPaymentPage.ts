@@ -44,7 +44,7 @@ export class DocumentCreditPaymentPage extends BasePage {
     const catalog = record(catalogResult.body, 'catalog');
     const wallet = record(walletResult.body, 'wallet');
     expect(catalog).toMatchObject({
-      catalogVersion: 'public-beta-2026-08-15',
+      catalogVersion: 'public-beta-2026-08-22',
       currency: 'GBP',
       billingCountry: 'GB',
       taxStatus: 'NOT_VAT_REGISTERED',
@@ -58,19 +58,19 @@ export class DocumentCreditPaymentPage extends BasePage {
       {
         id: 'starter', name: 'Starter',
         description: 'Up to 5 complete CV and cover-letter applications',
-        documentCredits: 10, priceMinor: 799, currency: 'GBP',
+        documentCredits: 10, priceMinor: 499, currency: 'GBP',
         fullApplicationEquivalent: 5, promotionBonusDocumentCredits: 5,
         active: true, sortOrder: 1,
       },
       {
         id: 'active', name: 'Active', description: '25 tailored document credits',
-        documentCredits: 25, priceMinor: 1699, currency: 'GBP',
+        documentCredits: 25, priceMinor: 1199, currency: 'GBP',
         fullApplicationEquivalent: 12, promotionBonusDocumentCredits: 13,
         active: true, sortOrder: 2,
       },
       {
         id: 'power', name: 'Power', description: '60 tailored document credits',
-        documentCredits: 60, priceMinor: 3499, currency: 'GBP',
+        documentCredits: 60, priceMinor: 1999, currency: 'GBP',
         fullApplicationEquivalent: 30, promotionBonusDocumentCredits: 30,
         active: true, sortOrder: 3,
       },
@@ -90,9 +90,9 @@ export class DocumentCreditPaymentPage extends BasePage {
     });
 
     await expect(this.page.getByRole('heading', {name: '2 credits available'})).toBeVisible();
-    await expect(this.page.getByText('£7.99', {exact: true})).toBeVisible();
-    await expect(this.page.getByText('£16.99', {exact: true})).toBeVisible();
-    await expect(this.page.getByText('£34.99', {exact: true})).toBeVisible();
+    await expect(this.page.getByText('£4.99', {exact: true})).toBeVisible();
+    await expect(this.page.getByText('£11.99', {exact: true})).toBeVisible();
+    await expect(this.page.getByText('£19.99', {exact: true})).toBeVisible();
     await expect(this.page.getByText('One credit means one delivered document')).toBeVisible();
     await expect(this.page.getByText(/No credit is used/).first()).toBeVisible();
   }
@@ -163,11 +163,11 @@ export class DocumentCreditPaymentPage extends BasePage {
       consumerTermsVersion: 'uk-consumer-terms-2026-08-15',
       consumerAcknowledgementsRecorded: true,
       pricingSnapshot: {
-        catalogVersion: 'public-beta-2026-08-15',
+        catalogVersion: 'public-beta-2026-08-22',
         pricingPlanId: 'starter',
         pricingPlanName: 'Starter',
         documentCredits: 10,
-        priceMinor: 799,
+        priceMinor: 499,
         currency: 'GBP',
         billingCountry: 'GB',
         taxStatus: 'NOT_VAT_REGISTERED',
