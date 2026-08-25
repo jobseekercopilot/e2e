@@ -65,6 +65,14 @@ Feature: Uploaded and generated documents remain explicit application choices
       | traversalDocx            |
 
   @state:DEMO_READY @critical-smoke
+  Scenario: Save an application and add both documents later for free
+    When the user starts the Generate application document journey
+    And the user chooses Not now for the CV and Not now for the cover letter
+    Then the saved application contains the exact selected document references
+    And the application document generation allowance and content boundary is correct
+    And application document reporting remains content-free
+
+  @state:DEMO_READY @critical-smoke
   Scenario: Generate both explicitly selected application documents
     When the user starts the Generate application document journey
     And the user chooses Generate for the CV and Generate for the cover letter
