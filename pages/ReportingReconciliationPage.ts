@@ -42,6 +42,8 @@ const STATUS_HOURS: Record<string, number> = {
   REJECTED: 0.25,
 };
 
+const NHS_SOURCE_EVIDENCE_MARKER = ' Source evidence: provider=NHS_JOBS';
+
 function count(applications: ApplicationRecord[], ...statuses: string[]): number {
   return applications.filter(application => statuses.includes(application.status ?? '')).length;
 }
@@ -57,6 +59,11 @@ function expectedSummary(applications: ApplicationRecord[]): Required<Applicatio
     rejectedByUser: count(applications, 'REJECTED_BY_USER'),
     total: applications.length,
   };
+}
+
+function publicActivityText(text: string): string {
+  const markerIndex = text.indexOf(NHS_SOURCE_EVIDENCE_MARKER);
+  return markerIndex >= 0 ? text.slice(0, markerIndex).trimEnd() : text;
 }
 
 export class ReportingReconciliationPage {
@@ -133,10 +140,41 @@ export class ReportingReconciliationPage {
     await expect(renderedActivity).toHaveCount(timeline.length);
     for (let index = 0; index < timeline.length; index += 1) {
       if (timeline[index].text) {
-        await expect(renderedActivity.nth(index)).toContainText(timeline[index].text as string);
+        const sourceText = timeline[index].text as string;
+        await expect(renderedActivity.nth(index)).toContainText(publicActivityText(sourceText));
+        if (sourceText.includes(NHS_SOURCE_EVIDENCE_MARKER)) {
+          await expect(renderedActivity.nth(index)).not.toContainText('canonicalJobId=');
+          await expect(renderedActivity.nth(index)).not.toContainText('listingUrl=');
+        }
       }
       await expect(renderedActivity.nth(index).locator('time')).not.toHaveText('');
     }
+
+    const desktopContainment = await panel.evaluate(element => {
+      const sidebar = element.closest('#right-sidebar');
+      if (!sidebar) throw new Error('Reporting panel is not inside the desktop right sidebar.');
+      const sidebarRight = sidebar.getBoundingClientRect().right;
+      const reportingRight = element.getBoundingClientRect().right;
+      const cardRights = Array.from(
+        element.querySelectorAll<HTMLElement>('.reporting-header, .reporting-card')
+      ).map(card => card.getBoundingClientRect().right);
+      return {
+        cardRights,
+        documentWidth: document.documentElement.scrollWidth,
+        reportingRight,
+        sidebarRight,
+        viewportWidth: window.innerWidth,
+      };
+    });
+    expect(desktopContainment.reportingRight).toBeLessThanOrEqual(
+      desktopContainment.sidebarRight + 1
+    );
+    for (const cardRight of desktopContainment.cardRights) {
+      expect(cardRight).toBeLessThanOrEqual(desktopContainment.sidebarRight + 1);
+    }
+    expect(desktopContainment.documentWidth).toBeLessThanOrEqual(
+      desktopContainment.viewportWidth + 1
+    );
     if (timeline.length === 0) {
       await expect(panel.getByText('No activity yet.', {exact: true})).toBeVisible();
       await expect(panel.getByText('No journal entries yet.', {exact: true})).toBeVisible();
