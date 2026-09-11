@@ -24,6 +24,20 @@ export class RegisterPage extends BasePage {
     await this.completeSearchSetup(user);
   }
 
+  /**
+   * Mirrors {@link registerUser} but drives the extended onboarding path:
+   * after account creation it runs {@link completeSearchSetupWithEvidence},
+   * which completes preferences (steps 1–3), adds one qualification (step 4)
+   * and one employment entry (step 5), then skips volunteering (step 6) to
+   * reach the dashboard. Kept minimal to preserve the page-object contract.
+   */
+  async registerUserWithEvidence(user: DemoUser): Promise<void> {
+    await this.startCreateProfile();
+    await this.enterAccountDetails(user);
+    await this.submitRegistration();
+    await this.completeSearchSetupWithEvidence(user);
+  }
+
   async loginUser(user: DemoUser): Promise<void> {
     await this.page.goto(this.baseUrl);
     await this.page.addStyleTag({
@@ -94,6 +108,41 @@ export class RegisterPage extends BasePage {
   }
 
   private async completeSearchSetup(user: DemoUser): Promise<void> {
+    await this.completePreferenceSteps(user);
+
+    // Since the onboarding flow gained three optional steps (Qualifications,
+    // Employment, Volunteering), "Finish setup" now lands on step 4 rather than
+    // the dashboard. Skipping at step 4 emits `onboarded` immediately, which
+    // completes onboarding and reaches the dashboard.
+    await this.skipRemainingEvidenceSteps();
+    await expect(this.byTestId('job-search-preferences')).toBeVisible();
+  }
+
+  /**
+   * Completes onboarding steps 1–3 exactly like {@link completeSearchSetup},
+   * then adds one qualification (step 4) and one employment entry (step 5),
+   * asserting each save issues a successful `POST /api/auth/evidence`, before
+   * skipping volunteering (step 6) to land on the dashboard.
+   */
+  async completeSearchSetupWithEvidence(user: DemoUser): Promise<void> {
+    await this.completePreferenceSteps(user);
+
+    await this.addQualificationEntry(user);
+    await this.clickFramed(this.page.getByRole('button', {name: 'Continue', exact: true}));
+
+    await this.addEmploymentEntry(user);
+    await this.clickFramed(this.page.getByRole('button', {name: 'Continue', exact: true}));
+
+    // Skip volunteering (step 6) — this emits `onboarded` and lands on the dashboard.
+    await this.skipRemainingEvidenceSteps();
+    await expect(this.byTestId('job-search-preferences')).toBeVisible();
+  }
+
+  /**
+   * Completes preference steps 1–3 (target roles, location, workplace) and
+   * clicks "Finish setup", leaving the user on step 4 (Qualifications).
+   */
+  private async completePreferenceSteps(user: DemoUser): Promise<void> {
     await this.humanFillFramed(
       this.page.getByLabel('Target roles', {exact: true}),
       user.targetRoles.join(', '),
@@ -112,6 +161,100 @@ export class RegisterPage extends BasePage {
 
     await this.page.getByRole('checkbox', {name: 'Remote', exact: true}).check();
     await this.clickFramed(this.page.getByRole('button', {name: 'Finish setup', exact: true}));
-    await expect(this.byTestId('job-search-preferences')).toBeVisible();
+  }
+
+  /**
+   * Fills and saves a single qualification entry on step 4. The embedded
+   * evidence library form saves each entry via `POST /api/auth/evidence`; this
+   * asserts the response is HTTP 2xx.
+   */
+  private async addQualificationEntry(user: DemoUser): Promise<void> {
+    await this.humanFillFramed(
+      this.page.getByLabel('Qualification or training title', {exact: true}),
+      user.qualification.name,
+    );
+    await this.humanFillFramed(
+      this.page.getByLabel('Awarding or issuing body', {exact: true}),
+      user.qualification.institution,
+    );
+    await this.selectFramed(
+      this.page.getByLabel('Status', {exact: true}),
+      'Completed',
+    );
+    await this.fillFramed(
+      this.page.getByLabel('Completion date', {exact: true}),
+      this.toDateInput(user.qualification.completed),
+    );
+    await this.saveEvidenceDraft();
+  }
+
+  /**
+   * Fills and saves a single employment entry on step 5. "This is ongoing or
+   * current" is ticked to avoid requiring an end date. Asserts the save issues
+   * a successful `POST /api/auth/evidence`.
+   */
+  private async addEmploymentEntry(user: DemoUser): Promise<void> {
+    const job = user.workHistory[0];
+    await this.humanFillFramed(
+      this.page.getByLabel('Role', {exact: true}),
+      job.jobTitle,
+    );
+    await this.humanFillFramed(
+      this.page.getByLabel('Employer', {exact: true}),
+      job.employer,
+    );
+    await this.fillFramed(
+      this.page.getByLabel('Start date', {exact: true}),
+      this.toDateInput(job.from),
+    );
+    await this.page.getByRole('checkbox', {name: 'This is ongoing or current', exact: true}).check();
+    await this.saveEvidenceDraft();
+  }
+
+  /**
+   * Clicks "Save as draft" inside the embedded evidence library and waits for
+   * the corresponding `POST /api/auth/evidence` call to succeed. The evidence
+   * create endpoint is `POST /api/auth/evidence` (see the generated
+   * EvidenceLibraryService), so the URL predicate matches on `/evidence`.
+   */
+  private async saveEvidenceDraft(): Promise<void> {
+    const responsePromise = this.page.waitForResponse(response =>
+      response.request().method() === 'POST'
+      && /\/evidence(?:$|\?)/.test(new URL(response.url()).pathname)
+    );
+    await this.clickFramed(this.page.getByRole('button', {name: 'Save as draft', exact: true}));
+    const response = await responsePromise;
+    if (!response.ok()) {
+      throw new Error(
+        `Saving evidence failed with HTTP ${response.status()}: ${await response.text()}`
+      );
+    }
+  }
+
+  /**
+   * Clicks the "Skip" button available on evidence steps 4/5/6. Skipping emits
+   * `onboarded` immediately, completing onboarding and landing on the dashboard.
+   */
+  private async skipRemainingEvidenceSteps(): Promise<void> {
+    await this.clickFramed(this.page.getByRole('button', {name: 'Skip', exact: true}));
+  }
+
+  /**
+   * Normalises a fixture date to the `yyyy-mm-dd` value expected by
+   * `<input type="date">`. Fixture dates may already be ISO-formatted or a year
+   * such as "2019"; anything unparseable falls back to a stable default.
+   */
+  private toDateInput(value: string): string {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return value;
+    }
+    if (/^\d{4}$/.test(value)) {
+      return `${value}-01-01`;
+    }
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString().slice(0, 10);
+    }
+    return '2020-01-01';
   }
 }
